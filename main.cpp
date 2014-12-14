@@ -55,6 +55,8 @@ int main()
 		else
 		{
 			//将更新得到tracklet用于后续的manager，这个后续再继续进行吧
+			//git测试代码
+			std::cout<<"github test"<<std::endl;
 		}
 		imshow("sourceImage",sourceImage);
 		if(cv::waitKey(1) == 27)
