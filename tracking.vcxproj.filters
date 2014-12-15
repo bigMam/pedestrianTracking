@@ -24,12 +24,30 @@
     <ClCompile Include="SymmetryProcess.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="featureExtractor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="myTracker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DESCache.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mySVM.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="SymmetryProcess.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="featureExtractor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="myTracker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DESCache.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

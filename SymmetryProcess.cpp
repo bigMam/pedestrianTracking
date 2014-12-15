@@ -97,6 +97,15 @@ void SymmetryProcess::initParam()
 	//endPos = 230;
 	//interval = (endPos - startPos)/11;//10
 
+	lockedPedArea = new LockedArea(); 
+	lockedPedArea->topLeftX = 0;
+	lockedPedArea->topLeftY = 0;
+	lockedPedArea->width = 0;
+	lockedPedArea->height = 0;
+	lockedPedArea->next = NULL;
+
+
+
 }
 void SymmetryProcess::loadImage(const char* filename)
 {
@@ -707,13 +716,15 @@ void SymmetryProcess::lockPedestrianArea()
 
 {
 	//这里是直接进行初始化操作，如果是连续处理的话，还需要对lockedPedArea链表信息进行释放，切记切记
-	lockedPedArea = new LockedArea(); 
-	lockedPedArea->topLeftX = 0;
-	lockedPedArea->topLeftY = 0;
-	lockedPedArea->width = 0;
-	lockedPedArea->height = 0;
+	LockedArea* current = lockedPedArea->next;
+	LockedArea* tmp;
+	while(current)
+	{
+		tmp = current->next;
+		delete current;
+		current = tmp;
+	}
 	lockedPedArea->next = NULL;
-
 	int location,scanLineNum;
 	float increase;
 	int bottomPos,bottomPosS;

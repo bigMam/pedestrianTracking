@@ -16,7 +16,6 @@ int main()
 		return -1;
 	cv::Mat sourceImage;
 	cv::Mat gray;
-
 	LockedArea* current,*tmp;//记录当前已经检测得到的行人
 
 	while(cap.read(sourceImage))
