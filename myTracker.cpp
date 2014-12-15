@@ -5,11 +5,17 @@
 Tracker::Tracker()
 {
 	//完成对kalman滤波器的初始化操作，用于之后的tracklet的预测过程
+	stateNum = 8;
+	measureNum = 4;
+
 	KF = cv::KalmanFilter(stateNum, measureNum, 0);
 	state = cv::Mat(stateNum, 1, CV_32F);//滤波器状态矩阵
 	processNoise = cv::Mat(stateNum, 1, CV_32F);//滤波器处理噪声
 	measurement = cv::Mat::zeros(measureNum, 1, CV_32F);//滤波器测量矩阵
-	KF.transitionMatrix = *( cv::Mat_<float>(4, 4) << 1,0,1,0,0,1,0,1,0,0,1,0,0,0,0,1 );//转移矩阵
+	KF.transitionMatrix = *( Mat_<float>(8, 8) << 1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,
+		0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,
+		0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1,
+		0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1);//转移矩阵
 
 	setIdentity(KF.measurementMatrix);//测量矩阵
 	setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));
@@ -69,6 +75,13 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 			trackerlet->setBlockFeature(target);
 			trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
 
+			//根据当前检测值对kalman进行修正
+			measurement.at<float>(0) = (float)letTopLeftX;
+			measurement.at<float>(1) = (float)letTopLeftY;
+			measurement.at<float>(2) = (float)letWidth;
+			measurement.at<float>(3) = (float)letHeight;
+			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
+
 			if(trackerletHead != NULL)
 			{
 				delete trackerletHead;
@@ -79,8 +92,18 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 	}
 	else
 	{
-		//当前trackerletHead非空,可以尝试进行比较，另外如何进行预测呢？还没有明确的给出方案
+		//当前trackerletHead非空,可以尝试进行比较，另外如何进行预测呢？还没有明确的给出方案,这里将根据kalman滤波进行预测
+		//后进行跟踪过程
+		Mat prediction = KF.predict();//利用滤波器对当前检测tracklet矩形进行预测
+		float *data = prediction.ptr<float>(0);
+		int predictX = data[0];
+		int predictY = data[1];
+		int predictW = data[2];
+		int predictH = data[3];
+		std::cout<<predictX<<" "<<predictY<<" "<<predictW<<" "<<predictH<<std::endl;
+		cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,predictW,predictH));
+		cv::rectangle(sourceImage,cv::Rect(predictX,predictY,predictW,predictH),cv::Scalar(255,0,0),2);
 
-		return false;
+		return true;
 	}
 }

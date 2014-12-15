@@ -20,8 +20,8 @@ typedef struct _trackerlet
 
 class Tracker
 {
-	const static int stateNum = 4;//×´Ì¬¾ØÕó
-	const static int measureNum = 2;//²âÁ¿¾ØÕó£¬
+	int stateNum;//×´Ì¬¾ØÕó[x,y,dx,dy,width,height,dw,dh]
+	int measureNum;//²âÁ¿¾ØÕó£¬[x,y,width,height]
 	cv::Mat state; // (x,y,dX,dY)
 	cv::Mat processNoise;
 	cv::Mat measurement;
