@@ -29,39 +29,58 @@ void Tracker::setLoackedPedArea(LockedArea* result)
 {
 	lockedPedArea = result;//直接指向同一内存空间就好了，暂时先这样处理，后续可能会要进行改变
 }
-bool Tracker::update(cv::Mat &sourceImage)
+//更新过程的思路整理，
+//一是直接根据行人检测矩形框进行tracklet提取
+//二是根据kalman预测结果进行tracklet提取，并与之前tracklet进行比较
+//如果差别在可接受范围内，则进行更新，否则认为更新失败，需要想detector发送检测请求
+//返回值为isRequset,表示当前更新后是否需要进行检测，更新失败则需要进行检测，
+bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 {
-	if(trackerletHead == NULL)
+	if(haveRectBoxing)//表示当前有新鲜出炉的行人检测矩形框，不需要进行预测过程？有待商榷
 	{
-		if(lockedPedArea == NULL)
-			return false;
-		else
+		if(lockedPedArea == NULL)//检测，但是没有检测到行人。虽然没有检测到行人但是依然不能够使用预测方法，
+			//原因：之前的预测结果已经出现问题当前同样无法进行预测过程
+			return true;
+		else//有检测行人可以根据检测行人对tracklet进行更新过程，这里如何对tracklet进行管理还没有明确的思路，暂时先仅对tracklet进行管理
+			//先写出一个流程出来，
 		{
 			//根据lockedPedArea产生新的tracklet
 			int topLeftX = lockedPedArea->topLeftX;
 			int topLeftY = lockedPedArea->topLeftY;
 			int width = lockedPedArea->width;
 			int height = lockedPedArea->height;
+
 			int letWidth = width * 0.4;
 			int letHeight = height * 0.18;
 			int letTopLeftX = topLeftX + width * 0.3;
 			int letTopLeftY = topLeftY + height * 0.25;
 			cv::Mat subImage = sourceImage(cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight));
 			cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
-			//blockFeature target;
-			//extractor.computeFeature(subImage,target);
-			//Trackerlet* trackerlet = new Trackerlet();
-			//trackerlet->topLeftX = letTopLeftX;
-			//trackerlet->topLeftY = letTopLeftY;
-			//trackerlet->width = letWidth;
-			//trackerlet->Height = letHeight;
-			//trackerlet->next = NULL;
-			//trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
-			return true;
+
+			blockFeature target;
+			extractor.computeFeature(subImage,target);
+
+			Trackerlet* trackerlet = new Trackerlet();
+			trackerlet->topLeftX = letTopLeftX;
+			trackerlet->topLeftY = letTopLeftY;
+			trackerlet->width = letWidth;
+			trackerlet->Height = letHeight;
+			trackerlet->next = NULL;
+			trackerlet->setBlockFeature(target);
+			trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
+
+			if(trackerletHead != NULL)
+			{
+				delete trackerletHead;
+			}
+			trackerletHead = trackerlet;
+			return false;
 		}
 	}
 	else
 	{
-		return true;
+		//当前trackerletHead非空,可以尝试进行比较，另外如何进行预测呢？还没有明确的给出方案
+
+		return false;
 	}
 }

@@ -19,14 +19,15 @@ typedef struct _feature
 	cv::MatND horDerHist;
 	cv::MatND verDerHist;
 	float EHD[5];
+
 }blockFeature;
 
 //提取不同的特征描述，针对不同的特征，特征维度不同，计算过程有所不同
 class FeatureExtractor
 {
 public:
-	FeatureExtractor();
-	~FeatureExtractor();
+	FeatureExtractor(){};
+	~FeatureExtractor(){};
 
 	void initCache();
 	const float* getBlockHistogram(float* buf,cv::Mat& img,int nbins);//获得当前窗口内的直方图
