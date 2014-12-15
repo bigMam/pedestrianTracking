@@ -7,15 +7,15 @@ const float invCof[] = {1.414f, 0, 0, -1.414f};//45度对角线
 const float diaCof[] = {0, 1.414f, -1.414f, 0};//135度对角线
 const float nodCof[] = {1, -1, -1, 1};
 
-//FeatureExtractor::FeatureExtractor()
-//{
-//	//cache.init();
-//}
-//
-//FeatureExtractor::~FeatureExtractor()
-//{
-//
-//}
+FeatureExtractor::FeatureExtractor()
+{
+	//cache.init();
+}
+
+FeatureExtractor::~FeatureExtractor()
+{
+
+}
 void FeatureExtractor::initCache()
 {
 	cache.init();

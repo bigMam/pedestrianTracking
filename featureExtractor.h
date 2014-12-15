@@ -25,8 +25,8 @@ typedef struct _feature
 class FeatureExtractor
 {
 public:
-	FeatureExtractor(){};
-	~FeatureExtractor(){};
+	FeatureExtractor();
+	~FeatureExtractor();
 
 	void initCache();
 	const float* getBlockHistogram(float* buf,cv::Mat& img,int nbins);//获得当前窗口内的直方图

@@ -42,9 +42,9 @@ bool Tracker::update(cv::Mat &sourceImage)
 			int topLeftY = lockedPedArea->topLeftY;
 			int width = lockedPedArea->width;
 			int height = lockedPedArea->height;
-			int letWidth = width * 0.5;
-			int letHeight = height * 0.25;
-			int letTopLeftX = topLeftX + width * 0.25;
+			int letWidth = width * 0.4;
+			int letHeight = height * 0.18;
+			int letTopLeftX = topLeftX + width * 0.3;
 			int letTopLeftY = topLeftY + height * 0.25;
 			cv::Mat subImage = sourceImage(cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight));
 			cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
