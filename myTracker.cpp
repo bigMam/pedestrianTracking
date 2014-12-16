@@ -2,21 +2,39 @@
 //将检测得到pedArea存储到tracker中，这里不能直接使用引用吧，
 //假设是使用同一内存空间，则后续的改变，将对其造成影响。，貌似没有问题，等出现问题再进行修改吧
 
+#define HAVE_BORDER 1
+//使用边界预测，但是对其不进行赋值，对角点坐标预测效果反而不错，暂时不追究其原因，先将整个代码跑通，框架搭好先
+
 Tracker::Tracker()
 {
 	//完成对kalman滤波器的初始化操作，用于之后的tracklet的预测过程
+
+#if HAVE_BORDER == 1
+	stateNum = 8;
+	measureNum = 4;
+#else
 	stateNum = 4;
 	measureNum = 2;
+#endif
 
 	KF = cv::KalmanFilter(stateNum, measureNum, 0);
 	state = cv::Mat(stateNum, 1, CV_32F);//滤波器状态矩阵
 	processNoise = cv::Mat(stateNum, 1, CV_32F);//滤波器处理噪声
 	measurement = cv::Mat::zeros(measureNum, 1, CV_32F);//滤波器测量矩阵
-	//KF.transitionMatrix = *( Mat_<float>(8, 8) << 1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,
-	//	0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,
-	//	0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1,
-	//	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1);//转移矩阵
+
+#if HAVE_BORDER == 1
+	KF.transitionMatrix = *( Mat_<float>(8, 8) << 
+		1,0,1,0,0,0,0,0,
+		0,1,0,1,0,0,0,0,
+		0,0,1,0,0,0,0,0,
+		0,0,0,1,0,0,0,0,
+		0,0,0,0,1,0,1,0,
+		0,0,0,0,0,1,0,1,
+		0,0,0,0,0,0,1,0,
+		0,0,0,0,0,0,0,1);//转移矩阵
+#else
 	KF.transitionMatrix = *(Mat_<float>(4,4) << 1,0,1,0,0,1,0,1,0,0,1,0,0,0,0,1);
+#endif
 
 	setIdentity(KF.measurementMatrix);//测量矩阵
 	setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));
@@ -42,6 +60,8 @@ void Tracker::setLoackedPedArea(LockedArea* result)
 //二是根据kalman预测结果进行tracklet提取，并与之前tracklet进行比较
 //如果差别在可接受范围内，则进行更新，否则认为更新失败，需要想detector发送检测请求
 //返回值为isRequset,表示当前更新后是否需要进行检测，更新失败则需要进行检测，
+//应该而且很有必要将边框信息考虑进来？直接使用之前的边框信息不可以？
+//关于左上角点的预测还是有一定效果的
 bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 {
 	if(haveRectBoxing)//表示当前有新鲜出炉的行人检测矩形框，不需要进行预测过程？有待商榷
@@ -76,20 +96,25 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 			trackerlet->next = NULL;
 			trackerlet->setBlockFeature(target);
 			trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
+			circle(sourceImage,cv::Point(letTopLeftX,letTopLeftY),5,CV_RGB(255,0,0),3);//将当前测量值直接在原图上进行绘制
 
 			//根据当前检测值对kalman进行修正
 			Mat prediction = KF.predict();
-			float *data = prediction.ptr<float>(0);
-			double predictX = data[0];
-			double predictY = data[1];
+			//float *data = prediction.ptr<float>(0);
+			//double predictX = data[0];
+			//double predictY = data[1];
 			//double predictW = data[2];
 			//double predictH = data[3];
-			circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
+			
+			//circle(sourceImage,cv::Point(predictX + predictW ,predictY + predictH),5,CV_RGB(0,255,0),3);
 
 			measurement.at<float>(0) = (float)letTopLeftX;
 			measurement.at<float>(1) = (float)letTopLeftY;
+#if HAVE_BORDER == 1
 			//measurement.at<float>(2) = (float)letWidth;
-			//measurement.at<float>(3) = (float)letHeight;
+			//measurement.at<float>(3) = (float)letHeight;//存在疑问，这里为什么不能加上这里的测量值，理论上对x、y值是没有影响的
+			//需要通过阅读源码对其进行解释？？？？存疑，但是还是需要继续走下去
+#endif
 			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
 
 			if(trackerletHead != NULL)
@@ -108,10 +133,14 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 		float *data = prediction.ptr<float>(0);
 		int predictX = data[0];
 		int predictY = data[1];
-		//int predictW = data[2];
-		//int predictH = data[3];
-		std::cout<<predictX<<" "<<predictY<<" "<<std::endl;//<<predictW<<" "<<predictH<<std::endl;
+#if HAVE_BORDER == 1
+		int predictW = data[2];
+		int predictH = data[3];
+#endif
+		//std::cout<<predictX<<" "<<predictY<<" "<<predictW<<" "<<predictH<<std::endl;
+		std::cout<<predictX<<" "<<predictY<<" "<<std::endl;
 		circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
+		//circle(sourceImage,cv::Point(predictX + predictW ,predictY + predictH),5,CV_RGB(0,255,0),3);
 		//cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,predictW,predictH));
 		//cv::rectangle(sourceImage,cv::Rect(predictX,predictY,predictW,predictH),cv::Scalar(255,0,0),2);
 
