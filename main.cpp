@@ -54,7 +54,7 @@ int main()
 
 		imshow("sourceImage",sourceImage);
 		if(!isRequest)//当前tracklet更新成功，可以进行tracklet管理过程
-			//如果更新成功则进行传递，这样可行？
+			//如果更新成功则进行传递tracklet，
 		{
 			//将更新得到tracklet用于后续的manager，这个后续再继续进行吧
 			//git测试代码
