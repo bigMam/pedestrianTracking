@@ -5,23 +5,25 @@
 Tracker::Tracker()
 {
 	//完成对kalman滤波器的初始化操作，用于之后的tracklet的预测过程
-	stateNum = 8;
-	measureNum = 4;
+	stateNum = 4;
+	measureNum = 2;
 
 	KF = cv::KalmanFilter(stateNum, measureNum, 0);
 	state = cv::Mat(stateNum, 1, CV_32F);//滤波器状态矩阵
 	processNoise = cv::Mat(stateNum, 1, CV_32F);//滤波器处理噪声
 	measurement = cv::Mat::zeros(measureNum, 1, CV_32F);//滤波器测量矩阵
-	KF.transitionMatrix = *( Mat_<float>(8, 8) << 1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,
-		0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,
-		0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1,
-		0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1);//转移矩阵
+	//KF.transitionMatrix = *( Mat_<float>(8, 8) << 1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,
+	//	0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,
+	//	0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,1,
+	//	0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1);//转移矩阵
+	KF.transitionMatrix = *(Mat_<float>(4,4) << 1,0,1,0,0,1,0,1,0,0,1,0,0,0,0,1);
 
 	setIdentity(KF.measurementMatrix);//测量矩阵
 	setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));
 	setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-1));
 	setIdentity(KF.errorCovPost, cv::Scalar::all(1));
-	randn(KF.statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
+	//KF.statePost = *(Mat_<float>(4,1) << 320,240,1,1);
+	randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
 
 	//对二次特征提取模块进行初始化操作
 	extractor = FeatureExtractor();
@@ -76,10 +78,18 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 			trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
 
 			//根据当前检测值对kalman进行修正
+			Mat prediction = KF.predict();
+			float *data = prediction.ptr<float>(0);
+			double predictX = data[0];
+			double predictY = data[1];
+			//double predictW = data[2];
+			//double predictH = data[3];
+			circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
+
 			measurement.at<float>(0) = (float)letTopLeftX;
 			measurement.at<float>(1) = (float)letTopLeftY;
-			measurement.at<float>(2) = (float)letWidth;
-			measurement.at<float>(3) = (float)letHeight;
+			//measurement.at<float>(2) = (float)letWidth;
+			//measurement.at<float>(3) = (float)letHeight;
 			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
 
 			if(trackerletHead != NULL)
@@ -98,11 +108,12 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 		float *data = prediction.ptr<float>(0);
 		int predictX = data[0];
 		int predictY = data[1];
-		int predictW = data[2];
-		int predictH = data[3];
-		std::cout<<predictX<<" "<<predictY<<" "<<predictW<<" "<<predictH<<std::endl;
-		cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,predictW,predictH));
-		cv::rectangle(sourceImage,cv::Rect(predictX,predictY,predictW,predictH),cv::Scalar(255,0,0),2);
+		//int predictW = data[2];
+		//int predictH = data[3];
+		std::cout<<predictX<<" "<<predictY<<" "<<std::endl;//<<predictW<<" "<<predictH<<std::endl;
+		circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
+		//cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,predictW,predictH));
+		//cv::rectangle(sourceImage,cv::Rect(predictX,predictY,predictW,predictH),cv::Scalar(255,0,0),2);
 
 		return true;
 	}
