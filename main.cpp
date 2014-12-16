@@ -6,10 +6,10 @@ using namespace cv;
 int main()
 {
 	const char* filename =  "D:\\ImageDataSets\\TestSamples\\image1202.jpg";
-	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2683_08_save.avi";
+	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2693_01.avi";
 	SVMDetector detector;
 	detector.loadDetectorVector("mydetectorNew.xml");
-	detector.initSymmetryParam(527,531,310,248,530,1.2);
+	detector.initSymmetryParam(527,531,310,248,530,0.72);
 
 	Tracker tracker = Tracker();
 
@@ -18,7 +18,7 @@ int main()
 		return -1;
 	cv::Mat sourceImage;
 	cv::Mat gray;
-	int interval = 10;//detector检测调用间隔
+	int interval = 8;//detector检测调用间隔
 	int k = 0;//统计调用间隔
 	bool isRequest = true;
 	LockedArea* current,*tmp;//记录当前已经检测得到的行人

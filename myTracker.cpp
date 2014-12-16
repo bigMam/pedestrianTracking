@@ -98,15 +98,8 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 			trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
 			circle(sourceImage,cv::Point(letTopLeftX,letTopLeftY),5,CV_RGB(255,0,0),3);//将当前测量值直接在原图上进行绘制
 
-			//根据当前检测值对kalman进行修正
+			//根据当前检测值对kalman进行修正，这里的predict必须添加，但这里的预测结果是没有不关心的，因为存在检测值
 			Mat prediction = KF.predict();
-			//float *data = prediction.ptr<float>(0);
-			//double predictX = data[0];
-			//double predictY = data[1];
-			//double predictW = data[2];
-			//double predictH = data[3];
-			
-			//circle(sourceImage,cv::Point(predictX + predictW ,predictY + predictH),5,CV_RGB(0,255,0),3);
 
 			measurement.at<float>(0) = (float)letTopLeftX;
 			measurement.at<float>(1) = (float)letTopLeftY;
@@ -127,23 +120,44 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 	}
 	else
 	{
-		//当前trackerletHead非空,可以尝试进行比较，另外如何进行预测呢？还没有明确的给出方案,这里将根据kalman滤波进行预测
+		//当前trackerletHead非空,可以尝试进行比较，另外如何进行预测呢？
 		//后进行跟踪过程
 		Mat prediction = KF.predict();//利用滤波器对当前检测tracklet矩形进行预测
 		float *data = prediction.ptr<float>(0);
 		int predictX = data[0];
 		int predictY = data[1];
 #if HAVE_BORDER == 1
-		int predictW = data[2];
+		int predictW = data[2];//这里的边框值暂时不需要，而是选择使用tracklet的边框进行取值
 		int predictH = data[3];
 #endif
-		//std::cout<<predictX<<" "<<predictY<<" "<<predictW<<" "<<predictH<<std::endl;
 		std::cout<<predictX<<" "<<predictY<<" "<<std::endl;
 		circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
+		if(trackerletHead == NULL)
+			//当前并没有tracklet存在，直接返回true
+			return true;
+		else
+		{
+			//这里将根据当前得到tracklet与之前tracklet进行预测匹配，如果相似度可以则保留，否则删除，并发出检测请求
+			//代码虽多但要思路清晰
+			int letWidth = trackerletHead->width;
+			int letHeight = trackerletHead->Height;
+			cv::rectangle(sourceImage,cv::Rect(predictX,predictY,letWidth,letHeight),cv::Scalar(255,0,0),2);
+			cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,letWidth,letHeight));
+
+			blockFeature target;
+			extractor.computeFeature(subImage,target);
+			//将当前得到blockfeature与之前存储内容进行比较
+
+			double distinguish = extractor.distinguish(trackerletHead->featureSet,target);
+			std::cout<<"差异值为："<<distinguish<<std::endl;
+			if(distinguish > 0.3)
+				return true;
+			else
+				return false;
+		}
 		//circle(sourceImage,cv::Point(predictX + predictW ,predictY + predictH),5,CV_RGB(0,255,0),3);
 		//cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,predictW,predictH));
 		//cv::rectangle(sourceImage,cv::Rect(predictX,predictY,predictW,predictH),cv::Scalar(255,0,0),2);
 
-		return true;
 	}
 }
