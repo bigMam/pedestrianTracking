@@ -421,39 +421,3 @@ void FeatureExtractor::computeFeature(const cv::Mat& src,blockFeature& feature)
 	EHDExtarctor(gray,feature);
 }
 
-//计算当前特征与目标特征之间的差值
-double FeatureExtractor::distinguish(blockFeature& target, blockFeature& current)
-{
-	cv::MatND targetLBP = cv::Mat(target.cs_lbpFeature);
-	cv::MatND currentLBP = cv::Mat(current.cs_lbpFeature);
-
-	cv::MatND targetCanny = cv::Mat(target.cannyFeature);
-	cv::MatND currentCanny = cv::Mat(current.cannyFeature);
-
-	double hueDistance = compareHist(target.hueHist,current.hueHist,CV_COMP_BHATTACHARYYA);
-	double satDistance = compareHist(target.satHist,current.satHist,CV_COMP_BHATTACHARYYA);
-	double valDistance = compareHist(target.valHist,current.valHist,CV_COMP_BHATTACHARYYA);
-	double lbpDistance = compareHist(targetLBP,currentLBP,CV_COMP_BHATTACHARYYA);
-	double cannyDistance = compareHist(targetCanny,currentCanny,CV_COMP_BHATTACHARYYA);
-	double horDerDistance = compareHist(target.horDerHist,current.horDerHist,CV_COMP_BHATTACHARYYA);
-	double verDerDistance = compareHist(target.verDerHist,current.verDerHist,CV_COMP_BHATTACHARYYA);
-
-	cv::MatND targetEHD = cv::Mat(5,1,CV_32F);
-	cv::MatND currentEHD = cv::Mat(5,1,CV_32F);
-	for(int i = 0; i < 5; i++)
-	{
-		float* targetPtr = targetEHD.ptr<float>(i);
-		float* currentPtr = currentEHD.ptr<float>(i);
-		targetPtr[0] = target.EHD[i];
-		currentPtr[0] = current.EHD[i];
-	}
-	double EHDDistance = compareHist(targetEHD,currentEHD,CV_COMP_BHATTACHARYYA);
-	//完成距离计算过程，
-
-	//计算当前图像块与目标图像块的差异值
-	double dissimilarity = (hueDistance + satDistance + valDistance + lbpDistance 
-		+ cannyDistance + horDerDistance + verDerDistance + EHDDistance) / 8.0f;
-
-	std::cout<<"dissimilarity is :"<<dissimilarity<<std::endl;
-	return dissimilarity;
-}

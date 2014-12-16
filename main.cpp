@@ -48,7 +48,6 @@ int main()
 		}
 		else
 		{
-			//根据预测进行更新过程
 			isRequest = tracker.update(sourceImage,false);
 		}
 

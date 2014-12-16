@@ -9,9 +9,18 @@ typedef struct _trackerlet
 	int topLeftX;
 	int topLeftY;
 	int width;
-	int Height;
+	int height;
 	blockFeature featureSet;//每个trackerlet都有对应的特征提取，用于之后进行前后差异性对比
 	_trackerlet* next;
+	_trackerlet()
+	{
+		trackerletID = 0;
+		topLeftX = 0;
+		topLeftY = 0;
+		width = 0;
+		height = 0;
+		next = NULL;
+	}
 	void setBlockFeature(blockFeature& blockfeatures)
 	{
 		featureSet = blockfeatures;
@@ -30,7 +39,13 @@ class Tracker
 	cv::KalmanFilter KF;//先设定一个kalman滤波器，看一下，如何进行操作
 
 	LockedArea *lockedPedArea;//检测得到行人存在区域
-	Trackerlet *trackerletHead;//也是链表的形式,是链表的形式，需要对所有检测得到tracklet进行操作，会不会耗时呢？
+	Trackerlet targetTrackerlet;//也是链表的形式,是链表的形式，需要对所有检测得到tracklet进行操作，会不会耗时呢？
+	//先仅仅跟踪一个行人，之后再进行调整，不可能一次将所有内容都考虑进来
+	Trackerlet* distrator;//这里是将抛弃tracklet内容保存下来用于更新特征值权重
+
+	double weights[8];//特征权重
+
+
 public:
 	Tracker();
 	void setLoackedPedArea(LockedArea *result);
@@ -41,4 +56,7 @@ public:
 	//分清主次关系，才可以保证自己不会走偏，有些内容是可以进行延后的，
 	bool update(cv::Mat &souceImage,bool haveRectBoxing);
 
+	double distinguish(blockFeature& target, blockFeature& current);//计算两特征向量区分度
+
+	void featureWeighting(blockFeature& current);//在线根据当前得到内容对各个特征向量权重进行调整
 };
