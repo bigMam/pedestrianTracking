@@ -83,10 +83,10 @@ bool Tracker::update(cv::Mat &sourceImage)
 {
 	if(targetTrackerlet == 0)//当前targetTrackerlet为空
 	{
-		if(lockedPedArea != NULL)//这里需要假定在视频的初始阶段有且仅有目标行人出现并可检测，这一限定条件
+		if(lockedPedArea->next != NULL)//这里需要假定在视频的初始阶段有且仅有目标行人出现并可检测，这一限定条件
 		{
 			Trackerlet* trackerlet = new Trackerlet();
-			extractTracklet(sourceImage,lockedPedArea,trackerlet);
+			extractTracklet(sourceImage,lockedPedArea->next,trackerlet);
 			targetTrackerlet = trackerlet;//这里因为之前没有存在traget，这里可以直接赋值，没有问题
 
 			//在原图上进行绘制，红色表示测量值
@@ -98,6 +98,17 @@ bool Tracker::update(cv::Mat &sourceImage)
 			measurement.at<float>(1) = (float)trackerlet->topLeftY;
 			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
 			//这里直接认定检测得到就是正确的显然是存在问题的，
+
+			//遍历删除操作
+			LockedArea *head = lockedPedArea;
+			LockedArea *current = lockedPedArea->next;
+			while(current != NULL)
+			{
+				LockedArea* tmp = current;
+				head->next = current->next;
+				delete tmp;
+				current = head->next;
+			}
 			return false;
 		}
 		else
@@ -110,16 +121,17 @@ bool Tracker::update(cv::Mat &sourceImage)
 		Trackerlet* newTargetTrackerlet = NULL;//用于存储新得到tracklet，无论是检测得到还是预测得到
 
 		//首先对lockedPedArea进行遍历判断，两个结果：一个是发现targetTrackerlet，另外就是没有发现，好像废话，，，
-		LockedArea* current = lockedPedArea;//遍历判断，这里链表并没有头节点
+		LockedArea* current = lockedPedArea->next;//遍历判断，这里链表并没有头节点
 		while(current != NULL)
 		{
 			Trackerlet* trackerlet = new Trackerlet();
 			extractTracklet(sourceImage,current,trackerlet);
 			double distinguishValue = this->distinguish(targetTrackerlet->featureSet,trackerlet->featureSet);
 			std::cout<<"差异值为："<<distinguishValue<<std::endl;
-			if(distinguishValue < 0.35)//认定为目标行人，阈值后续观察后再进行调节
+			if(distinguishValue < 0.65)//认定为目标行人，阈值后续观察后再进行调节
 			{
 				newTargetTrackerlet = trackerlet;
+				circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
 				current = current->next;
 				break;
 			}
@@ -137,6 +149,17 @@ bool Tracker::update(cv::Mat &sourceImage)
 			insertDistrator(trackerlet);
 			current = current->next;
 		}
+		//使用结束之后，清空lockedPedArea操作,遍历删除
+		LockedArea *head = lockedPedArea;
+		current = lockedPedArea->next;
+		while(current != NULL)
+		{
+			LockedArea* tmp = current;
+			head->next = current->next;
+			delete tmp;
+			current = head->next;
+		}
+
 		if(newTargetTrackerlet == NULL)//之前经由lockedPedArea，并没有得到可用的trackerlet，需要经由kalman进行滤波预测
 		{
 			Mat prediction = KF.predict();//利用滤波器对当前检测tracklet矩形进行预测
@@ -147,9 +170,9 @@ bool Tracker::update(cv::Mat &sourceImage)
 			blockFeature target;
 			extractor.computeFeature(subImage,target);
 			//将当前得到blockfeature与之前存储内容进行比较
-			double distinguish = this->distinguish(targetTrackerlet->featureSet,target);
-			std::cout<<"差异值为："<<distinguish<<std::endl;
-			if(distinguish > 0.35)//当前预测结果并不能满足相似度要求，发出检测请求
+			double distinguishValue = this->distinguish(targetTrackerlet->featureSet,target);
+			std::cout<<"差异值为："<<distinguishValue<<std::endl;
+			if(distinguishValue > 0.65)//当前预测结果并不能满足相似度要求，发出检测请求
 				return true;
 			else
 			{
@@ -183,14 +206,6 @@ bool Tracker::update(cv::Mat &sourceImage)
 		insertDistrator(targetTrackerlet);
 		targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 		
-		//清空lockedPedArea操作
-		current = lockedPedArea;
-		while(current != NULL)
-		{
-			LockedArea* tmp = current->next;
-			delete current;
-			current = tmp;
-		}
 		return false;//表示不需要进行检测，可以继续进行下一次循环
 		//tracker思路终于清晰了，嘎嘎
 	}
@@ -291,7 +306,7 @@ void Tracker::insertDistrator(Trackerlet* tracklet)
 {
 	//可以使用队列的形式，FIFO，符合队列操作一般特性，
 	//操作到后面，往往是利用新添加元素将指定元素进行替换，在队列已满的情形下，也是能够快速插入的
-	
+
 	//注：front 指向队头后一个元素，rear指向队尾元素
 	if((front + 1)%capacity == rear)//队满
 	{

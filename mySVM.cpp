@@ -196,7 +196,7 @@ void SVMDetector::detectBaseOnSymmetry(cv::Mat &sourceImage)
 }
 LockedArea* SVMDetector::getResultRect()
 {
-	return lockedPedArea->next;
+	return lockedPedArea;
 }
 
 //在进行视频检测之前已经完成的任务包括：svmDetector的载入，对称性检测的初始化工作（如果需要），

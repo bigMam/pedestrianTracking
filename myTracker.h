@@ -37,7 +37,7 @@ class Tracker
 	FeatureExtractor extractor;
 	cv::KalmanFilter KF;//先设定一个kalman滤波器，看一下，如何进行操作
 
-	LockedArea* lockedPedArea;//检测得到行人存在区域
+	LockedArea* lockedPedArea;//检测得到行人存在区域含头结点
 	Trackerlet* targetTrackerlet;//也是链表的形式,是链表的形式，需要对所有检测得到tracklet进行操作，会不会耗时呢？
 	//先仅仅跟踪一个行人，之后再进行调整，不可能一次将所有内容都考虑进来
 	double weights[8];//特征权重

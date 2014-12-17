@@ -35,8 +35,8 @@ int main()
 			cv::cvtColor(sourceImage,gray,CV_BGR2GRAY);
 			//cv::imshow("frame",sourceImage);
 			detector.detectBaseOnSymmetry(gray);
-			tmp = detector.getResultRect();//获得行人检测结果，
-			current = tmp;
+			current = detector.getResultRect();//获得行人检测结果，
+			tmp = current->next;
 			//对检测内容进行绘制，前提是能够检测得到行人
 			while(tmp != NULL)
 			{
@@ -48,7 +48,7 @@ int main()
 			//则保存上次检测结果，这样有什么用呢
 			tracker.setLoackedPedArea(current);//将当前得到的结果存储到tracker中，用于生成新的tracklet
 			k = 0;
-			
+			isRequest = false;
 		}
 		isRequest = tracker.update(sourceImage);
 
@@ -68,7 +68,6 @@ int main()
 		{
 			while(cv::waitKey(3) != 32);
 		}
-		
 		k++;
 	}
 	cv::waitKey(0);
