@@ -46,30 +46,39 @@ Tracker::Tracker()
 	extractor = FeatureExtractor();
 	extractor.initCache();
 	lockedPedArea = NULL;//不含头节点
-	distratorList = NULL;//不含头节点
 	targetTrackerlet = NULL;//当前指向空
-
 	//权重初始化操作
 	for(int i = 0; i < 8; ++i)
 	{
 		weights[i] = 1.0 / 8;
 	}
-
+	front = 0;//初始化列表内容为空
+	rear = 0;
+	for(int i = 0; i < capacity; i++)
+	{
+		distratorList[i] = NULL;
+	}
 }
+
+//对残留内容进行删除操作，主要是distrator列表内容
+Tracker::~Tracker()
+{
+	int traversal = rear;
+	//清空列表
+	while(traversal != front)
+	{
+		delete distratorList[traversal];
+		traversal = (traversal + 1) % capacity;
+	}
+	delete targetTrackerlet;
+}
+
 
 void Tracker::setLoackedPedArea(LockedArea* result)
 {
 	lockedPedArea = result;//直接指向同一内存空间就好了，暂时先这样处理，后续可能会要进行改变
 }
 
-//更新过程的思路整理，
-//一是直接根据行人检测矩形框进行tracklet提取
-//二是根据kalman预测结果进行tracklet提取，并与之前tracklet进行比较
-//如果差别在可接受范围内，则进行更新，否则认为更新失败，需要想detector发送检测请求
-//返回值为isRequset,表示当前更新后是否需要进行检测，更新失败则需要进行检测，
-//应该而且很有必要将边框信息考虑进来？直接使用之前的边框信息不可以？
-//关于左上角点的预测还是有一定效果的
-//重写update函数，添加权重修改部分
 bool Tracker::update(cv::Mat &sourceImage)
 {
 	if(targetTrackerlet == 0)//当前targetTrackerlet为空
@@ -80,7 +89,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 			extractTracklet(sourceImage,lockedPedArea,trackerlet);
 			targetTrackerlet = trackerlet;//这里因为之前没有存在traget，这里可以直接赋值，没有问题
 
-			//将当前测量值直接在原图上进行绘制，红色表示测量值
+			//在原图上进行绘制，红色表示测量值
 			circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
 
 			//根据当前检测值对kalman进行修正，这里的predict必须添加，但这里的预测结果是没有不关心的，因为存在检测值
@@ -88,7 +97,6 @@ bool Tracker::update(cv::Mat &sourceImage)
 			measurement.at<float>(0) = (float)trackerlet->topLeftX;
 			measurement.at<float>(1) = (float)trackerlet->topLeftY;
 			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
-			
 			//这里直接认定检测得到就是正确的显然是存在问题的，
 			return false;
 		}
@@ -97,21 +105,19 @@ bool Tracker::update(cv::Mat &sourceImage)
 			return true;//表示当前不存在检测矩形框，需要进一步的检测过程，
 		}
 	}
-	//这里还需要整理一下，思路一定要清晰
-	else//当前target存在值，可以进行比较及预测过程
+	else//当前targetTrackerlet存在值，可以进行比较、预测过程
 	{
-		bool haveNewTarget = false;
 		Trackerlet* newTargetTrackerlet = NULL;//用于存储新得到tracklet，无论是检测得到还是预测得到
 
 		//首先对lockedPedArea进行遍历判断，两个结果：一个是发现targetTrackerlet，另外就是没有发现，好像废话，，，
-		LockedArea* current = lockedPedArea;//遍历判断
+		LockedArea* current = lockedPedArea;//遍历判断，这里链表并没有头节点
 		while(current != NULL)
 		{
 			Trackerlet* trackerlet = new Trackerlet();
 			extractTracklet(sourceImage,current,trackerlet);
 			double distinguishValue = this->distinguish(targetTrackerlet->featureSet,trackerlet->featureSet);
 			std::cout<<"差异值为："<<distinguishValue<<std::endl;
-			if(distinguishValue < 0.3)//认定为目标行人
+			if(distinguishValue < 0.35)//认定为目标行人，阈值后续观察后再进行调节
 			{
 				newTargetTrackerlet = trackerlet;
 				current = current->next;
@@ -128,13 +134,66 @@ bool Tracker::update(cv::Mat &sourceImage)
 		{
 			Trackerlet* trackerlet = new Trackerlet();
 			extractTracklet(sourceImage,current,trackerlet);
+			insertDistrator(trackerlet);
 			current = current->next;
 		}
+		if(newTargetTrackerlet == NULL)//之前经由lockedPedArea，并没有得到可用的trackerlet，需要经由kalman进行滤波预测
+		{
+			Mat prediction = KF.predict();//利用滤波器对当前检测tracklet矩形进行预测
+			float *data = prediction.ptr<float>(0);
+			int predictX = data[0];
+			int predictY = data[1];
+			cv::Mat subImage = sourceImage(cv::Rect(predictX,predictY,targetTrackerlet->width,targetTrackerlet->height));
+			blockFeature target;
+			extractor.computeFeature(subImage,target);
+			//将当前得到blockfeature与之前存储内容进行比较
+			double distinguish = this->distinguish(targetTrackerlet->featureSet,target);
+			std::cout<<"差异值为："<<distinguish<<std::endl;
+			if(distinguish > 0.35)//当前预测结果并不能满足相似度要求，发出检测请求
+				return true;
+			else
+			{
+				//将预测结果保存下来
+				Trackerlet* trackerlet = new Trackerlet();
+				trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
+				trackerlet->topLeftX = predictX;
+				trackerlet->topLeftY = predictY;
+				trackerlet->width = targetTrackerlet->width;
+				trackerlet->height = targetTrackerlet->height;
+				trackerlet->setBlockFeature(target);
+				trackerlet->next = NULL;
 
-	
+				newTargetTrackerlet = trackerlet;
+				//在原图上进行绘制，绿色表示预测值
+				circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
+				cv::rectangle(sourceImage,
+					cv::Rect(predictX,predictY,targetTrackerlet->width,targetTrackerlet->height),
+					cv::Scalar(255,0,0),2);
+			}
+		}
+		//终于到这里了，根据三方内容进行权重调节
+		featureWeighting(newTargetTrackerlet->featureSet);
+
+		//还有扫尾工作需要完成，，，
+		//利用当前newTraget测量值对其滤波器进行修正
+		measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
+		measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
+		KF.correct(measurement);
+		//更新targetTrackerlet
+		insertDistrator(targetTrackerlet);
+		targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
+		
+		//清空lockedPedArea操作
+		current = lockedPedArea;
+		while(current != NULL)
+		{
+			LockedArea* tmp = current->next;
+			delete current;
+			current = tmp;
+		}
+		return false;//表示不需要进行检测，可以继续进行下一次循环
+		//tracker思路终于清晰了，嘎嘎
 	}
-
-	return false;
 }
 bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 {
@@ -188,13 +247,6 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 				return true;
 			else
 			{
-				//对tracklet进行更新过程，含权重调整，这里的
-				//trackerletHead->setBlockFeature(target);
-				//trackerletHead->topLeftX = predictX;
-				//trackerletHead->topLeftY = predictY;
-				//measurement.at<float>(0) = (float)predictX;
-				//measurement.at<float>(1) = (float)predictY;
-				//KF.correct(measurement);这里直接用预测值来进行修正显然是不合理的
 				circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
 				cv::rectangle(sourceImage,cv::Rect(predictX,predictY,letWidth,letHeight),cv::Scalar(255,0,0),2);
 				return false;
@@ -233,11 +285,32 @@ void Tracker::extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Tra
 	//对矩形框进行标定
 	cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
 }
+
+//将tracket插入到distrator列表中，并保证容量不超过上限，在超出时，能够删除last one
 void Tracker::insertDistrator(Trackerlet* tracklet)
 {
+	//可以使用队列的形式，FIFO，符合队列操作一般特性，
+	//操作到后面，往往是利用新添加元素将指定元素进行替换，在队列已满的情形下，也是能够快速插入的
+	
+	//注：front 指向队头后一个元素，rear指向队尾元素
+	if((front + 1)%capacity == rear)//队满
+	{
+		//插入之后需要将队尾元素出队
+		distratorList[front] = tracklet;
+		front = (front + 1)%capacity;
+		//队尾元素出队
+		Trackerlet* tmp = distratorList[rear];
+		//将元素删除
+		delete tmp;
+		rear = (rear + 1)%capacity;
+	}
+	else//队未满可以直接进行插入操作
+	{
+		distratorList[front] = tracklet;
+		front = (front + 1)%capacity;
+	}
 
 }
-
 
 //计算当前特征与目标特征之间的差值
 double Tracker::distinguish(blockFeature& target, blockFeature& current)
@@ -282,7 +355,7 @@ void Tracker::featureWeighting(blockFeature& current)
 	cv::MatND targetEHD = cv::Mat(5,1,CV_32F);
 	cv::MatND currentEHD = cv::Mat(5,1,CV_32F);
 
-	//完成current距离与所有distrator的feature巴氏距离均值
+	//current距离与所有distrator的feature巴氏距离均值
 	double meanhueDistance = 0,meansatDistance = 0,meanvalDistance = 0;
 	double meanlbpDistance = 0,meancannyDistance = 0;
 	double meanhorDerDistance = 0,meanverDerDistance = 0,meanEHDDistance = 0;
@@ -290,10 +363,9 @@ void Tracker::featureWeighting(blockFeature& current)
 	cv::MatND currentLBP = cv::Mat(current.cs_lbpFeature);
 	cv::MatND currentCanny = cv::Mat(current.cannyFeature);
 
-	int count = 0;
-	Trackerlet *distratorPtr = distratorList;
-	while(distratorPtr != NULL)
-	{
+	int traversal = rear;
+	while(traversal != front)
+	{   Trackerlet *distratorPtr = distratorList[traversal];
 		cv::MatND targetLBP = cv::Mat(distratorPtr->featureSet.cs_lbpFeature);
 		cv::MatND targetCanny = cv::Mat(distratorPtr->featureSet.cannyFeature);
 
@@ -312,9 +384,11 @@ void Tracker::featureWeighting(blockFeature& current)
 			currentPtr[0] = current.EHD[i];
 		}
 		meanEHDDistance = meanEHDDistance + compareHist(targetEHD,currentEHD,CV_COMP_BHATTACHARYYA);
+		traversal = (traversal + 1) % capacity;
 	}
-	if(count != 0)
+	if(rear != front)//表示当前distrator列表非空
 	{
+		int count = rear < front ? front - rear : front - rear + capacity;
 		meanhueDistance = meanhueDistance / count;
 		meansatDistance = meansatDistance / count;
 		meanvalDistance = meanvalDistance / count;
@@ -325,7 +399,7 @@ void Tracker::featureWeighting(blockFeature& current)
 		meanEHDDistance = meanEHDDistance / count;
 	}
 	
-	//完成current与preTarget的feature巴氏距离的计算
+	//current与preTarget的feature巴氏距离的计算
 	double hueDistance = 0,satDistance = 0,valDistance = 0;
 	double lbpDistance = 0,cannyDistance = 0;
 	double horDerDistance = 0,verDerDistance = 0,EHDDistance = 0;

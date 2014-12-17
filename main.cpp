@@ -48,12 +48,9 @@ int main()
 			//则保存上次检测结果，这样有什么用呢
 			tracker.setLoackedPedArea(current);//将当前得到的结果存储到tracker中，用于生成新的tracklet
 			k = 0;
-			isRequest = tracker.update(sourceImage,true);//进行更新，根据更新结果判断是否需要进一步的进行检测
+			
 		}
-		else
-		{
-			isRequest = tracker.update(sourceImage,false);
-		}
+		isRequest = tracker.update(sourceImage);
 
 		imshow("sourceImage",sourceImage);
 		if(!isRequest)//当前tracklet更新成功，可以进行tracklet管理过程

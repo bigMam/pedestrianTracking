@@ -27,7 +27,6 @@ typedef struct _trackerlet
 	}
 }Trackerlet;
 
-
 class Tracker
 {
 	int stateNum;//状态矩阵[x,y,dx,dy,width,height,dw,dh]
@@ -41,13 +40,17 @@ class Tracker
 	LockedArea* lockedPedArea;//检测得到行人存在区域
 	Trackerlet* targetTrackerlet;//也是链表的形式,是链表的形式，需要对所有检测得到tracklet进行操作，会不会耗时呢？
 	//先仅仅跟踪一个行人，之后再进行调整，不可能一次将所有内容都考虑进来
-	Trackerlet* distratorList;//这里是将抛弃tracklet内容保存下来用于更新特征值权重
-
 	double weights[8];//特征权重
-	int distratorLimit;//distrator列表容量上限，超过则将oldest one 删除
+
+	Trackerlet* distratorList[6];//这里是将抛弃tracklet内容保存下来用于更新特征值权重，使用指针操纵速度会快很多吧
+	//这里需要另外一个空间来辅助判断队空or队满
+	static const int capacity = 6;//distrator列表容量上限，超过则将oldest one删除
+	int front;//队头下标
+	int rear;//队尾下标
 
 public:
 	Tracker();
+	~Tracker();
 	void setLoackedPedArea(LockedArea *result);
 	//对之前tracklet进行更新，及产生新的tracklet，用于管理,如果更新失败，则设定request
 	//haveRectBoxing表示当前是根据矩形框内容进行更新，但是这时又存在一个新的问题
