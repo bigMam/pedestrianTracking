@@ -3,19 +3,23 @@
 #include "SymmetryProcess.h"
 #include "myTracker.h"
 using namespace cv;
+
+extern int videoCut(const char* sourceVideo,const char* targetVideo,int stratSec,int endSec);
 int main()
 {
 	const char* filename =  "D:\\ImageDataSets\\TestSamples\\image1202.jpg";
-	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2702_100.avi";
+	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2.avi";
+
+	cv::VideoCapture cap(videoname);
+	if(!cap.isOpened())
+		return -1;
 	SVMDetector detector;
 	detector.loadDetectorVector("mydetectorNew.xml");
-	detector.initSymmetryParam(527,531,310,248,530,1.05);
+	detector.initSymmetryParam(527,531,310,248,530,0.75);
 
 	Tracker tracker = Tracker();//distinguish是在tracker中完成的，
 
-	VideoCapture cap(videoname);
-	if(!cap.isOpened())
-		return -1;
+
 	cv::Mat sourceImage;
 	cv::Mat gray;
 	int interval = 10;//detector检测调用间隔

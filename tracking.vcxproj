@@ -84,6 +84,7 @@
     <ClCompile Include="mySVM.cpp" />
     <ClCompile Include="myTracker.cpp" />
     <ClCompile Include="SymmetryProcess.cpp" />
+    <ClCompile Include="videoProcess.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DESCache.h" />
