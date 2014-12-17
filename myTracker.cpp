@@ -133,6 +133,10 @@ bool Tracker::update(cv::Mat &sourceImage)
 				newTargetTrackerlet = trackerlet;
 				circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
 				current = current->next;
+
+				measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
+				measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
+				KF.correct(measurement);
 				break;
 			}
 			else//加入distrator列表
@@ -199,12 +203,13 @@ bool Tracker::update(cv::Mat &sourceImage)
 
 		//还有扫尾工作需要完成，，，
 		//利用当前newTraget测量值对其滤波器进行修正
-		measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
-		measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
-		KF.correct(measurement);
+		//measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
+		//measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
+		//KF.correct(measurement);
 		//更新targetTrackerlet
-		insertDistrator(targetTrackerlet);
-		targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
+
+		//insertDistrator(targetTrackerlet);
+		//targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 		
 		return false;//表示不需要进行检测，可以继续进行下一次循环
 		//tracker思路终于清晰了，嘎嘎
@@ -439,17 +444,32 @@ void Tracker::featureWeighting(blockFeature& current)
 	}
 	EHDDistance = compareHist(targetEHD,currentEHD,CV_COMP_BHATTACHARYYA);
 	
-	//完成对feature的歌权重调整过程，这里仅仅是一种方法，但这是否是最好的方法呢，还有待进一步的确定
-	weights[0] = weights[0] + (meanhueDistance - hueDistance);
-	weights[1] = weights[1] + (meansatDistance - satDistance);
-	weights[2] = weights[2] + (meanvalDistance - valDistance);
-	weights[3] = weights[3] + (meanlbpDistance - lbpDistance);
-	weights[4] = weights[4] + (meancannyDistance - cannyDistance);
-	weights[5] = weights[5] + (meanhorDerDistance - horDerDistance);
-	weights[6] = weights[6] + (meanverDerDistance - verDerDistance);
-	weights[7] = weights[7] + (meanEHDDistance - EHDDistance);
+	//完成对feature的权重调整过程，这里仅仅是一种方法，但这是否是最好的方法呢，还有待进一步的确定
+	//最终的目标是weight为正值，同时保证其和为一
+	//分解：一是计算各个feature得分，根据当前三方彼此相似度，区分度计算原则
+	//与target尽可能接近（distance小），同时distrator差异度尽可能大（meandistance大）。
+	//区分度大的feature具有更到的得分
+	//首先分数一定是正值么？这里可以将（meanDistance - distance）进行比例换算，对应到不同的score
+	//二是根据各个feature得分，对weight进行调整，
+	//三是对调整后weight进行归一化，保证其最终和为一
 
-	//归一化操作
+	//将 df1 - df2 更改为 df1 / df2,太机智了，同样满足了反比条件，但在实际计算中是否
+	//将 weight = weight + score 更改为 weight = weight * score，
+	//解释，score表示当前差异度与相似度的比例关系，> 1 差异度占上风， < 1 相似度占上风
+	//*score,如果差异度占上风则扩大weight，否则缩小weight
+	//总结，只是自作聪明，最终的结果导致某一特征权重无限大，其他趋向于零，是的权重计算失去意义
+	//还是需要重新考虑score 为正的情形
+	if(meanhueDistance != 0 && hueDistance != 0)
+	{
+		weights[0] = weights[0] + (meanhueDistance - hueDistance);
+		weights[1] = weights[1] + (meansatDistance - satDistance);
+		weights[2] = weights[2] + (meanvalDistance - valDistance);
+		weights[3] = weights[3] + (meanlbpDistance - lbpDistance);
+		weights[4] = weights[4] + (meancannyDistance - cannyDistance);
+		weights[5] = weights[5] + (meanhorDerDistance - horDerDistance);
+		weights[6] = weights[6] + (meanverDerDistance - verDerDistance);
+		weights[7] = weights[7] + (meanEHDDistance - EHDDistance);
+	}
 	double sum = 0;
 	for(int i = 0; i < 8; ++i)
 	{

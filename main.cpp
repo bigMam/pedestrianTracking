@@ -22,7 +22,7 @@ int main()
 
 	cv::Mat sourceImage;
 	cv::Mat gray;
-	int interval = 10;//detector检测调用间隔
+	int interval = 5;//detector检测调用间隔
 	int k = 0;//统计调用间隔
 	bool isRequest = true;//检测调用请求
 	LockedArea* current,*tmp;//记录当前已经检测得到的行人
