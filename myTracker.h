@@ -55,7 +55,8 @@ public:
 	//从这里可以稍微延伸一下，对于你想到的所有问题，一时不能够全部解决，你需要明确首要目标，
 	//分清主次关系，才可以保证自己不会走偏，有些内容是可以进行延后的，
 	bool update(cv::Mat &souceImage,bool haveRectBoxing);
-
+	bool update(cv::Mat &souceImage);//新的更新过程，包含对distrator的管理？功能太多了，可能需要进一步细分
+	void extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Trackerlet &tracklet);//根据rect提取tracklet
 	double distinguish(blockFeature& target, blockFeature& current);//计算两特征向量区分度
 
 	void featureWeighting(blockFeature& current);//在线根据当前得到内容对各个特征向量权重进行调整

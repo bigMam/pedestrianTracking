@@ -4,7 +4,6 @@
 
 #define HAVE_BORDER 1
 //使用边界预测，但是对其不进行赋值，对角坐标预测效果反而不错，暂时不追究其原因，先将整个代码跑通，框架搭好先
-
 Tracker::Tracker()
 {
 	//完成对kalman滤波器的初始化操作，用于之后的tracklet的预测过程
@@ -46,8 +45,8 @@ Tracker::Tracker()
 	//对二次特征提取模块进行初始化操作
 	extractor = FeatureExtractor();
 	extractor.initCache();
-	lockedPedArea = NULL;
-	distrator = NULL;
+	lockedPedArea = NULL;//不含头节点
+	distrator = NULL;//不含头节点
 	targetTrackerlet = Trackerlet();
 
 	//权重初始化操作
@@ -57,7 +56,6 @@ Tracker::Tracker()
 	}
 
 }
-
 
 void Tracker::setLoackedPedArea(LockedArea* result)
 {
@@ -71,50 +69,116 @@ void Tracker::setLoackedPedArea(LockedArea* result)
 //返回值为isRequset,表示当前更新后是否需要进行检测，更新失败则需要进行检测，
 //应该而且很有必要将边框信息考虑进来？直接使用之前的边框信息不可以？
 //关于左上角点的预测还是有一定效果的
+//重写update函数，添加权重修改部分
+bool Tracker::update(cv::Mat &sourceImage)
+{
+	if(targetTrackerlet.topLeftX == 0)//当前targetTrackerlet为空
+	{
+		if(lockedPedArea != NULL)//这里需要假定在视频的初始阶段有且仅有目标行人出现并可检测，这一限定条件
+		{
+			Trackerlet trackerlet = Trackerlet();
+			extractTracklet(sourceImage,lockedPedArea,trackerlet);
+
+			//将当前测量值直接在原图上进行绘制，红色表示测量值
+			circle(sourceImage,cv::Point(trackerlet.topLeftX,trackerlet.topLeftY),5,CV_RGB(255,0,0),3);
+
+			//根据当前检测值对kalman进行修正，这里的predict必须添加，但这里的预测结果是没有不关心的，因为存在检测值
+			Mat prediction = KF.predict();
+			measurement.at<float>(0) = (float)trackerlet.topLeftX;
+			measurement.at<float>(1) = (float)trackerlet.topLeftY;
+			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
+			targetTrackerlet = trackerlet;//这里因为之前没有存在traget，这里可以直接赋值，没有问题
+			//这里直接认定检测得到就是正确的显然是存在问题的，
+			return false;
+		}
+		else
+		{
+			return true;//表示当前不存在检测矩形框，需要进一步的检测过程，
+		}
+	}
+	else//当前target存在值，可以进行比较及预测过程
+	{
+		if(lockedPedArea != NULL)//当前存在检测的到行人，则可以与target进行比较判断
+		{
+			LockedArea* current = lockedPedArea;//遍历判断
+			while(current != NULL)
+			{
+				Trackerlet trackerlet = Trackerlet();
+				extractTracklet(sourceImage,current,trackerlet);
+				double distinguishValue = this->distinguish(targetTrackerlet.featureSet,target);
+				std::cout<<"差异值为："<<distinguishValue<<std::endl;
+				if(distinguishValue < 0.3)//认定为目标行人
+				{
+					break;
+				}
+				else//加入distrator列表
+				{
+
+				}
+			}
+
+		}
+		else//使用kalman滤波进行预测
+		{
+
+		}
+	}
+
+	return false;
+}
+
+//这里存在一个反复出现的内容，可以提取作为一个单独函数实现
+//根据矩形框，提取tacklet
+void Tracker::extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Trackerlet &trackerlet)
+{
+	int topLeftX = lockedPedArea->topLeftX;
+    int topLeftY = lockedPedArea->topLeftY;
+	int width = lockedPedArea->width;
+	int height = lockedPedArea->height;
+	cv::Rect rect(topLeftX,topLeftY,width,height);
+
+	int letWidth = rect.width * 0.4;
+	int letHeight = rect.height * 0.18;
+	int letTopLeftX = rect.x + rect.width * 0.3;
+	int letTopLeftY = rect.y + rect.height * 0.25;
+	cv::Mat subImage = sourceImage(cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight));
+
+	blockFeature target;
+	extractor.computeFeature(subImage,target);
+
+	trackerlet.trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
+	trackerlet.topLeftX = letTopLeftX;
+	trackerlet.topLeftY = letTopLeftY;
+	trackerlet.width = letWidth;
+	trackerlet.height = letHeight;
+	trackerlet.setBlockFeature(target);
+	trackerlet.next = NULL;
+
+	//对矩形框进行标定
+	cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
+}
+
+
 bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 {
 	//表示当前有新鲜出炉的行人检测矩形框，不需要进行预测过程？有待商榷
 	if(haveRectBoxing && lockedPedArea != NULL)
 	{
-		//根据lockedPedArea产生新的tracklet
-		int topLeftX = lockedPedArea->topLeftX;
-		int topLeftY = lockedPedArea->topLeftY;
-		int width = lockedPedArea->width;
-		int height = lockedPedArea->height;
-
-		int letWidth = width * 0.4;
-		int letHeight = height * 0.18;
-		int letTopLeftX = topLeftX + width * 0.3;
-		int letTopLeftY = topLeftY + height * 0.25;
-		cv::Mat subImage = sourceImage(cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight));
-		cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
-
-		blockFeature target;
-		extractor.computeFeature(subImage,target);
 
 		Trackerlet trackerlet = Trackerlet();
-		trackerlet.topLeftX = letTopLeftX;
-		trackerlet.topLeftY = letTopLeftY;
-		trackerlet.width = letWidth;
-		trackerlet.height = letHeight;
-		trackerlet.next = NULL;
-		trackerlet.setBlockFeature(target);
-		trackerlet.trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
-		circle(sourceImage,cv::Point(letTopLeftX,letTopLeftY),5,CV_RGB(255,0,0),3);//将当前测量值直接在原图上进行绘制
+		extractTracklet(sourceImage,lockedPedArea,trackerlet);
+		circle(sourceImage,cv::Point(trackerlet.topLeftX,trackerlet.topLeftY),5,CV_RGB(255,0,0),3);
 
 		//根据当前检测值对kalman进行修正，这里的predict必须添加，但这里的预测结果是没有不关心的，因为存在检测值
 		Mat prediction = KF.predict();
 
-		measurement.at<float>(0) = (float)letTopLeftX;
-		measurement.at<float>(1) = (float)letTopLeftY;
-#if HAVE_BORDER == 1
-		//measurement.at<float>(2) = (float)letWidth;
-		//measurement.at<float>(3) = (float)letHeight;//存在疑问，这里为什么不能加上这里的测量值，理论上对x、y值是没有影响的
-		//需要通过阅读源码对其进行解释？？？？存疑，但是还是需要继续走下去
-#endif
+		measurement.at<float>(0) = (float)trackerlet.topLeftX;
+		measurement.at<float>(1) = (float)trackerlet.topLeftY;
+
 		KF.correct(measurement);//利用当前测量值对其滤波器进行修正
 
 		targetTrackerlet = trackerlet;//这里直接替换也是不正确的，替换需要在权重计算结束之后才进行
+		//这里直接认定检测得到就是正确的显然是存在问题的，
 		return false;
 
 	}
@@ -126,10 +190,6 @@ bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 		float *data = prediction.ptr<float>(0);
 		int predictX = data[0];
 		int predictY = data[1];
-#if HAVE_BORDER == 1
-		int predictW = data[2];//这里的边框值暂时不需要，而是选择使用tracklet的边框进行取值
-		int predictH = data[3];
-#endif
 		std::cout<<predictX<<" "<<predictY<<" "<<std::endl;
 
 		if (targetTrackerlet.topLeftX == 0)
