@@ -134,9 +134,11 @@ bool Tracker::update(cv::Mat &sourceImage)
 				circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
 				current = current->next;
 
+				//只能使用测量值对滤波器进行修正，不能够使用预测值进行修正，那样是不对的
 				measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
 				measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
 				KF.correct(measurement);
+				targetTrackerlet = newTargetTrackerlet;
 				break;
 			}
 			else//加入distrator列表
@@ -199,7 +201,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 			}
 		}
 		//终于到这里了，根据三方内容进行权重调节
-		featureWeighting(newTargetTrackerlet->featureSet);
+		//featureWeighting(newTargetTrackerlet->featureSet);
 
 		//还有扫尾工作需要完成，，，
 		//利用当前newTraget测量值对其滤波器进行修正
@@ -209,7 +211,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 		//更新targetTrackerlet
 
 		//insertDistrator(targetTrackerlet);
-		//targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
+		targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 		
 		return false;//表示不需要进行检测，可以继续进行下一次循环
 		//tracker思路终于清晰了，嘎嘎
@@ -457,19 +459,20 @@ void Tracker::featureWeighting(blockFeature& current)
 	//将 weight = weight + score 更改为 weight = weight * score，
 	//解释，score表示当前差异度与相似度的比例关系，> 1 差异度占上风， < 1 相似度占上风
 	//*score,如果差异度占上风则扩大weight，否则缩小weight
-	//总结，只是自作聪明，最终的结果导致某一特征权重无限大，其他趋向于零，是的权重计算失去意义
-	//还是需要重新考虑score 为正的情形
-	if(meanhueDistance != 0 && hueDistance != 0)
-	{
-		weights[0] = weights[0] + (meanhueDistance - hueDistance);
-		weights[1] = weights[1] + (meansatDistance - satDistance);
-		weights[2] = weights[2] + (meanvalDistance - valDistance);
-		weights[3] = weights[3] + (meanlbpDistance - lbpDistance);
-		weights[4] = weights[4] + (meancannyDistance - cannyDistance);
-		weights[5] = weights[5] + (meanhorDerDistance - horDerDistance);
-		weights[6] = weights[6] + (meanverDerDistance - verDerDistance);
-		weights[7] = weights[7] + (meanEHDDistance - EHDDistance);
-	}
+	//只是自作聪明，最终的结果导致某一特征权重无限大，其他趋向于零，使得权重计算失去意义
+	//还是需要重新考虑如何使得score为正的情形
+
+	//直接进行加一 太武断了，相比较1 而言，他们之间的差值要小的多，直接加1，会掩盖掉本身的变化值
+
+ 	weights[0] = hueDistance != 0 ? weights[0] + (meanhueDistance + 0.1 / hueDistance) : weights[0] + meanhueDistance;
+	weights[1] = satDistance != 0 ? weights[1] + (meansatDistance + 0.1 / satDistance) : weights[1] + meansatDistance;
+	weights[2] = valDistance != 0 ? weights[2] + (meanvalDistance + 0.1 / valDistance) : weights[2] + meanvalDistance;
+	weights[3] = lbpDistance != 0 ? weights[3] + (meanlbpDistance + 0.1 / lbpDistance) : weights[3] + meanlbpDistance;
+	weights[4] = cannyDistance != 0 ? weights[4] + (meancannyDistance + 0.1 / cannyDistance) : weights[4] + meancannyDistance;
+	weights[5] = horDerDistance != 0 ? weights[5] + (meanhorDerDistance + 0.1 / horDerDistance) : weights[5] + meanhorDerDistance;
+	weights[6] = verDerDistance != 0 ? weights[6] + (meanverDerDistance + 0.1 / verDerDistance) : weights[6] + meanverDerDistance;
+	weights[7] = EHDDistance != 0 ? weights[7] + (meanEHDDistance + 0.1 / EHDDistance) : weights[7] + meanEHDDistance;
+
 	double sum = 0;
 	for(int i = 0; i < 8; ++i)
 	{
