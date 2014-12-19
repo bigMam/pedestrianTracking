@@ -62,6 +62,7 @@ public:
 	void extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Trackerlet* tracklet);//根据rect提取tracklet
 	double distinguish(blockFeature& target, blockFeature& current);//计算两特征向量区分度
 	void featureWeighting(blockFeature& current);//在线根据当前得到内容对各个特征向量权重进行调整
-
 	void insertDistrator(Trackerlet* tracklet);//将丢弃tracklet加入distrator，同时保证distrator容量上限
+	bool isTargetTrackerlet(Trackerlet* current);//判断当前trackerlet是否为目标targetTrackerlet
+
 };

@@ -667,7 +667,6 @@ void SymmetryProcess::extractPeaks()
 		}
 		i = i + 2;
 	}
-	cout<<endl;
 	recordSub[k++] = -1;
 	p = k;
 	//再次对已求得峰值利用非极大抑制，寻求真正峰值

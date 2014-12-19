@@ -22,13 +22,15 @@ int main()
 
 	cv::Mat sourceImage;
 	cv::Mat gray;
-	int interval = 5;//detector检测调用间隔
+	int interval = 10;//detector检测调用间隔
 	int k = 0;//统计调用间隔
 	bool isRequest = true;//检测调用请求
 	LockedArea* current,*tmp;//记录当前已经检测得到的行人
 
 	while(cap.read(sourceImage))
 	{
+		std::cout<<std::endl;
+		std::cout<<"NEXT PERIOD:"<<std::endl;
 		//检测调用过程，完成行人检测过程
 		if( k > interval || isRequest )//两种情况调用：周期调用，响应请求
 		{

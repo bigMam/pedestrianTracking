@@ -81,7 +81,8 @@ void Tracker::setLoackedPedArea(LockedArea* result)
 
 bool Tracker::update(cv::Mat &sourceImage)
 {
-	if(targetTrackerlet == 0)//当前targetTrackerlet为空
+	
+	if(targetTrackerlet == 0)//当前targetTrackerlet为空,在最初跟踪目标确定阶段调用
 	{
 		if(lockedPedArea->next != NULL)//这里需要假定在视频的初始阶段有且仅有目标行人出现并可检测，这一限定条件
 		{
@@ -91,7 +92,9 @@ bool Tracker::update(cv::Mat &sourceImage)
 
 			//在原图上进行绘制，红色表示测量值
 			circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
-
+			cv::rectangle(sourceImage,
+					cv::Rect(trackerlet->topLeftX,trackerlet->topLeftY,targetTrackerlet->width,targetTrackerlet->height),
+					cv::Scalar(255,0,0),2);
 			//根据当前检测值对kalman进行修正，这里的predict必须添加，但这里的预测结果是没有不关心的，因为存在检测值
 			Mat prediction = KF.predict();
 			measurement.at<float>(0) = (float)trackerlet->topLeftX;
@@ -126,14 +129,13 @@ bool Tracker::update(cv::Mat &sourceImage)
 		{
 			Trackerlet* trackerlet = new Trackerlet();
 			extractTracklet(sourceImage,current,trackerlet);
-			double distinguishValue = this->distinguish(targetTrackerlet->featureSet,trackerlet->featureSet);
-			std::cout<<"差异值为："<<distinguishValue<<std::endl;
-			if(distinguishValue < 0.65)//认定为目标行人，阈值后续观察后再进行调节
+
+			//认定为目标行人，阈值后续观察后再进行调节，这里需要加入位置信息
+			if(isTargetTrackerlet(trackerlet))
 			{
 				newTargetTrackerlet = trackerlet;
 				circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
 				current = current->next;
-
 				//只能使用测量值对滤波器进行修正，不能够使用预测值进行修正，那样是不对的
 				measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
 				measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
@@ -177,8 +179,8 @@ bool Tracker::update(cv::Mat &sourceImage)
 			extractor.computeFeature(subImage,target);
 			//将当前得到blockfeature与之前存储内容进行比较
 			double distinguishValue = this->distinguish(targetTrackerlet->featureSet,target);
-			std::cout<<"差异值为："<<distinguishValue<<std::endl;
-			if(distinguishValue > 0.65)//当前预测结果并不能满足相似度要求，发出检测请求
+			std::cout<<"预测trackerlet差异值为："<<distinguishValue<<std::endl;
+			if(distinguishValue > 1.0)//当前预测结果并不能满足相似度要求，发出检测请求
 				return true;
 			else
 			{
@@ -201,10 +203,10 @@ bool Tracker::update(cv::Mat &sourceImage)
 			}
 		}
 		//终于到这里了，根据三方内容进行权重调节
-		//featureWeighting(newTargetTrackerlet->featureSet);
+		featureWeighting(newTargetTrackerlet->featureSet);
 
 		//还有扫尾工作需要完成，，，
-		//利用当前newTraget测量值对其滤波器进行修正
+		//显然不能使用预测值对其进行修正，这在原理上是说不通的
 		//measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
 		//measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
 		//KF.correct(measurement);
@@ -308,6 +310,36 @@ void Tracker::extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Tra
 	cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
 }
 
+bool Tracker::isTargetTrackerlet(Trackerlet* current)
+{
+	if(targetTrackerlet == NULL)
+		return false;
+	//根据位置信息及feature进行判断过程
+	//加入位置信息，位置相近可以讲阈值放宽，位置差别大的量目标，则需要有较高的相似度，才认定为同一目标
+	//位置相近时设定为1.0，位置差别较大时设定为0.5，可以考虑一下
+	double distinguishValue = this->distinguish(targetTrackerlet->featureSet,current->featureSet);
+	std::cout<<"差异值为："<<distinguishValue<<std::endl;
+	if(distinguishValue < 0.5)
+		return true;
+	else
+	{
+		//这里进行位置判断的依据是什么，怎样才认定为两目标接近？
+		//最原始的方法位置差值小于给定值
+		int diffX = std::abs(targetTrackerlet->topLeftX  - current->topLeftX);
+		int diffY = std::abs(targetTrackerlet->topLeftY - current->topLeftY);
+		if(diffX < 10 && diffY < 10)//认为两者较为接近
+			if(distinguishValue < 1.0)
+				return true;
+			else
+				return false;
+		else
+			if(distinguishValue < 0.5)
+				return true;
+			else
+				return false;
+	}
+}
+
 //将tracket插入到distrator列表中，并保证容量不超过上限，在超出时，能够删除last one
 void Tracker::insertDistrator(Trackerlet* tracklet)
 {
@@ -367,7 +399,7 @@ double Tracker::distinguish(blockFeature& target, blockFeature& current)
 		weights[0] * lbpDistance + weights[0] * cannyDistance + weights[0] * horDerDistance + 
 		weights[0] * verDerDistance + weights[0] * EHDDistance;
 
-	std::cout<<"dissimilarity is :"<<dissimilarity<<std::endl;
+	//std::cout<<"dissimilarity is :"<<dissimilarity<<std::endl;
 	return dissimilarity;
 }
 //根据当前current（正确目标），preTarget（先前存储的），distrator，已抛弃内容，
@@ -455,31 +487,25 @@ void Tracker::featureWeighting(blockFeature& current)
 	//二是根据各个feature得分，对weight进行调整，
 	//三是对调整后weight进行归一化，保证其最终和为一
 
-	//将 df1 - df2 更改为 df1 / df2,太机智了，同样满足了反比条件，但在实际计算中是否
-	//将 weight = weight + score 更改为 weight = weight * score，
-	//解释，score表示当前差异度与相似度的比例关系，> 1 差异度占上风， < 1 相似度占上风
-	//*score,如果差异度占上风则扩大weight，否则缩小weight
-	//只是自作聪明，最终的结果导致某一特征权重无限大，其他趋向于零，使得权重计算失去意义
-	//还是需要重新考虑如何使得score为正的情形
-
 	//直接进行加一 太武断了，相比较1 而言，他们之间的差值要小的多，直接加1，会掩盖掉本身的变化值
-
- 	weights[0] = hueDistance != 0 ? weights[0] + (meanhueDistance + 0.1 / hueDistance) : weights[0] + meanhueDistance;
-	weights[1] = satDistance != 0 ? weights[1] + (meansatDistance + 0.1 / satDistance) : weights[1] + meansatDistance;
-	weights[2] = valDistance != 0 ? weights[2] + (meanvalDistance + 0.1 / valDistance) : weights[2] + meanvalDistance;
-	weights[3] = lbpDistance != 0 ? weights[3] + (meanlbpDistance + 0.1 / lbpDistance) : weights[3] + meanlbpDistance;
-	weights[4] = cannyDistance != 0 ? weights[4] + (meancannyDistance + 0.1 / cannyDistance) : weights[4] + meancannyDistance;
-	weights[5] = horDerDistance != 0 ? weights[5] + (meanhorDerDistance + 0.1 / horDerDistance) : weights[5] + meanhorDerDistance;
-	weights[6] = verDerDistance != 0 ? weights[6] + (meanverDerDistance + 0.1 / verDerDistance) : weights[6] + meanverDerDistance;
-	weights[7] = EHDDistance != 0 ? weights[7] + (meanEHDDistance + 0.1 / EHDDistance) : weights[7] + meanEHDDistance;
-
+	if(meanhueDistance != 0)
+	{
+ 		weights[0] = hueDistance != 0 ? weights[0] + (meanhueDistance -  hueDistance) : weights[0] + meanhueDistance;
+		weights[1] = satDistance != 0 ? weights[1] + (meansatDistance -  satDistance) : weights[1] + meansatDistance;
+		weights[2] = valDistance != 0 ? weights[2] + (meanvalDistance -  valDistance) : weights[2] + meanvalDistance;
+		weights[3] = lbpDistance != 0 ? weights[3] + (meanlbpDistance -  lbpDistance) : weights[3] + meanlbpDistance;
+		weights[4] = cannyDistance != 0 ? weights[4] + (meancannyDistance -  cannyDistance) : weights[4] + meancannyDistance;
+		weights[5] = horDerDistance != 0 ? weights[5] + (meanhorDerDistance -  horDerDistance) : weights[5] + meanhorDerDistance;
+		weights[6] = verDerDistance != 0 ? weights[6] + (meanverDerDistance -  verDerDistance) : weights[6] + meanverDerDistance;
+		weights[7] = EHDDistance != 0 ? weights[7] + (meanEHDDistance -  EHDDistance) : weights[7] + meanEHDDistance;
+	}
 	double sum = 0;
 	for(int i = 0; i < 8; ++i)
 	{
 		sum = sum + weights[i];
 	}
 	for(int i = 0; i < 8; ++i)
-	{
+	{ 
 		weights[i] = weights[i] / sum;
 	}
 	//完成权重调整，但是还不知道效果如何
