@@ -1,4 +1,4 @@
-#include "myTracker.h"
+#include "tracker.h"
 //将检测得到pedArea存储到tracker中，这里不能直接使用引用吧，
 //假设是使用同一内存空间，则后续的改变，将对其造成影响。，貌似没有问题，等出现问题再进行修改吧
 
@@ -211,6 +211,8 @@ bool Tracker::update(cv::Mat &sourceImage)
 		return false;//表示不需要进行检测，可以继续进行下一次循环
 	}
 }
+
+//deprecated
 bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 {
 	//表示当前有新鲜出炉的行人检测矩形框，不需要进行预测过程？有待商榷
@@ -500,4 +502,17 @@ void Tracker::featureWeighting(blockFeature& current)
 		weights[i] = weights[i] / sum;
 	}
 	//完成权重调整，但是还不知道效果如何
+}
+
+Trackerlet* Tracker::getTrackerlist()
+{
+	return targetTrackerlet;
+}
+
+
+//利用反馈结果对targetTrackerlet进行修正
+void Tracker::correctTarget(Trackerlet* correctTrackerlet)
+{
+	targetTrackerlet = correctTrackerlet;//这样直接进行修正是存在风险的，一是之前内容没有delete，
+	//二是所指向的内容很有可能会在之后的某个时间点被清除，从而存在targetTrackerlet指向NULL的情况发生
 }

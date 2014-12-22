@@ -27,13 +27,16 @@
     <ClCompile Include="featureExtractor.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="myTracker.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="DESCache.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="videoProcess.cpp">
+    <ClCompile Include="tracker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="toolBox.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="manager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -47,10 +50,13 @@
     <ClInclude Include="featureExtractor.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="myTracker.h">
+    <ClInclude Include="DESCache.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="DESCache.h">
+    <ClInclude Include="manager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="tracker.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

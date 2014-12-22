@@ -81,16 +81,18 @@
     <ClCompile Include="DESCache.cpp" />
     <ClCompile Include="featureExtractor.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="manager.cpp" />
     <ClCompile Include="mySVM.cpp" />
-    <ClCompile Include="myTracker.cpp" />
+    <ClCompile Include="tracker.cpp" />
     <ClCompile Include="SymmetryProcess.cpp" />
-    <ClCompile Include="videoProcess.cpp" />
+    <ClCompile Include="toolBox.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DESCache.h" />
     <ClInclude Include="featureExtractor.h" />
+    <ClInclude Include="manager.h" />
     <ClInclude Include="mySVM.h" />
-    <ClInclude Include="myTracker.h" />
+    <ClInclude Include="tracker.h" />
     <ClInclude Include="SymmetryProcess.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -133,7 +133,7 @@ void SymmetryProcess::cannyProc()
 	//需要考虑进来。或者换一个思路，不直接强行改变，而是按照比例进行缩放
 	start = clock();
 	GaussianBlur(destImage, destImage, Size(7,7), 1.5, 1.5);
-	int low = 75;//40
+	int low = 40;//之前测试最优结果为，40
 	double high = low / 0.4;
 	
 	Canny(destImage, edgeImage, low, high, 3);//>>>O_O<<<<这里有一点文章可做，怎样选择最优的阈值，使得前景与背景尽可能多的分离开来

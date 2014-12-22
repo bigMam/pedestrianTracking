@@ -1,4 +1,6 @@
 //完成功能，由底层提供行人矩形框架，产生可靠tracklet，并提交给上层manager
+#pragma once
+
 #include "SymmetryProcess.h"//lockedArea
 #include "featureExtractor.h"//blockFeature
 #include "opencv2/video/tracking.hpp"
@@ -42,7 +44,7 @@ class Tracker
 	//先仅仅跟踪一个行人，之后再进行调整，不可能一次将所有内容都考虑进来
 	double weights[8];//特征权重
 
-	Trackerlet* distratorList[6];//这里是将抛弃tracklet内容保存下来用于更新特征值权重，使用指针操纵速度会快很多吧
+	Trackerlet* distratorList[6];//这里是将抛弃tracklet内容保存下来用于更新特征值权重，
 	//这里需要另外一个空间来辅助判断队空or队满
 	static const int capacity = 6;//distrator列表容量上限，超过则将oldest one删除
 	int front;//队头下标
@@ -65,4 +67,6 @@ public:
 	void insertDistrator(Trackerlet* tracklet);//将丢弃tracklet加入distrator，同时保证distrator容量上限
 	bool isTargetTrackerlet(Trackerlet* current);//判断当前trackerlet是否为目标targetTrackerlet
 
+	void correctTarget(Trackerlet* correctTrackerlet);
+	Trackerlet* getTrackerlist();
 };
