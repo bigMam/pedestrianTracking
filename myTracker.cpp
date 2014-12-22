@@ -105,7 +105,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 			//遍历删除操作
 			LockedArea *head = lockedPedArea;
 			LockedArea *current = lockedPedArea->next;
-			while(current != NULL)
+			while(current != NULL) 
 			{
 				LockedArea* tmp = current;
 				head->next = current->next;
@@ -157,6 +157,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 			insertDistrator(trackerlet);
 			current = current->next;
 		}
+
 		//使用结束之后，清空lockedPedArea操作,遍历删除
 		LockedArea *head = lockedPedArea;
 		current = lockedPedArea->next;
@@ -205,18 +206,9 @@ bool Tracker::update(cv::Mat &sourceImage)
 		//终于到这里了，根据三方内容进行权重调节
 		featureWeighting(newTargetTrackerlet->featureSet);
 
-		//还有扫尾工作需要完成，，，
-		//显然不能使用预测值对其进行修正，这在原理上是说不通的
-		//measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
-		//measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
-		//KF.correct(measurement);
-		//更新targetTrackerlet
-
-		//insertDistrator(targetTrackerlet);
 		targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 		
 		return false;//表示不需要进行检测，可以继续进行下一次循环
-		//tracker思路终于清晰了，嘎嘎
 	}
 }
 bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
@@ -327,7 +319,7 @@ bool Tracker::isTargetTrackerlet(Trackerlet* current)
 		//最原始的方法位置差值小于给定值
 		int diffX = std::abs(targetTrackerlet->topLeftX  - current->topLeftX);
 		int diffY = std::abs(targetTrackerlet->topLeftY - current->topLeftY);
-		if(diffX < 10 && diffY < 10)//认为两者较为接近
+		if(diffX < 30 && diffY < 30)//认为两者较为接近
 			if(distinguishValue < 1.0)
 				return true;
 			else
@@ -487,7 +479,6 @@ void Tracker::featureWeighting(blockFeature& current)
 	//二是根据各个feature得分，对weight进行调整，
 	//三是对调整后weight进行归一化，保证其最终和为一
 
-	//直接进行加一 太武断了，相比较1 而言，他们之间的差值要小的多，直接加1，会掩盖掉本身的变化值
 	if(meanhueDistance != 0)
 	{
  		weights[0] = hueDistance != 0 ? weights[0] + (meanhueDistance -  hueDistance) : weights[0] + meanhueDistance;

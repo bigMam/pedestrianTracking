@@ -5,24 +5,24 @@
 using namespace cv;
 
 extern int videoCut(const char* sourceVideo,const char* targetVideo,int stratSec,int endSec);
-int main()
+int pedTracking(const char* videoname)
 {
-	const char* filename =  "D:\\ImageDataSets\\TestSamples\\image1202.jpg";
-	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2.avi";
-
+	
 	cv::VideoCapture cap(videoname);
 	if(!cap.isOpened())
 		return -1;
+
+
 	SVMDetector detector;
 	detector.loadDetectorVector("mydetectorNew.xml");
-	detector.initSymmetryParam(527,531,310,248,530,0.75);
+	detector.initSymmetryParam(527,531,310,248,530,0.85);
 
 	Tracker tracker = Tracker();//distinguish是在tracker中完成的，
 
 
 	cv::Mat sourceImage;
 	cv::Mat gray;
-	int interval = 10;//detector检测调用间隔
+	int interval = 5;//detector检测调用间隔
 	int k = 0;//统计调用间隔
 	bool isRequest = true;//检测调用请求
 	LockedArea* current,*tmp;//记录当前已经检测得到的行人
@@ -55,6 +55,7 @@ int main()
 		isRequest = tracker.update(sourceImage);
 
 		imshow("sourceImage",sourceImage);
+		//cap_write<<sourceImage;
 		if(!isRequest)//当前tracklet更新成功，可以进行tracklet管理过程
 			//如果更新成功则进行传递tracklet，
 		{
@@ -72,6 +73,25 @@ int main()
 		}
 		k++;
 	}
+	cap.release();
 	cv::waitKey(0);
 	return 0;
 }
+int main()
+{
+	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2722_target.avi";
+	const char* targetvideo = "D:\\ImageDataSets\\trackingSamples\\MVI_2722_target_2.avi";
+	//videoCut(videoname,targetvideo,1,20);
+
+	
+	//const char* targetVideo = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2_target.avi";
+	//int ex=static_cast<int>(cap.get(CV_CAP_PROP_FOURCC)); 
+	//char EXT[] = {ex & 0XFF , (ex & 0XFF00) >> 8,(ex & 0XFF0000) >> 16,(ex & 0XFF000000) >> 24, 0}; //作用是什么 
+	//cv::Size S = cv::Size((int)cap.get(CV_CAP_PROP_FRAME_WIDTH),  
+	//	(int)cap.get(CV_CAP_PROP_FRAME_HEIGHT) ); 
+	//cv::VideoWriter cap_write;
+	//cap_write.open(targetVideo,ex, cap.get(CV_CAP_PROP_FPS),S, true); //打开写入文件，并指定格式
+
+	pedTracking(targetvideo);
+}
+
