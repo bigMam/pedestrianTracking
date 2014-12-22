@@ -59,6 +59,8 @@ Tracker::Tracker()
 		distratorList[i] = NULL;
 	}
 	letNumber = 0;//对得到trackerlet进行编号，编号可自加自减
+
+	discriminator = Discriminator();//调用默认构造函数
 }
 
 //对残留内容进行删除操作，主要是distrator列表内容
@@ -411,134 +413,52 @@ void Tracker::insertDistrator(Trackerlet* trackerlet)
 //计算当前特征与目标特征之间的差值
 double Tracker::distinguish(blockFeature& target, blockFeature& current)
 {
-	cv::MatND targetLBP = cv::Mat(target.cs_lbpFeature);
-	cv::MatND currentLBP = cv::Mat(current.cs_lbpFeature);
-	cv::MatND targetCanny = cv::Mat(target.cannyFeature);
-	cv::MatND currentCanny = cv::Mat(current.cannyFeature);
+	discriminator.clearDistance();
+	discriminator.setCurrentFeature(current);
+	discriminator.computeDistance(target);
+	double dissimilarity = discriminator.distinguish();
 
-	double hueDistance = compareHist(target.hueHist,current.hueHist,CV_COMP_BHATTACHARYYA);
-	double satDistance = compareHist(target.satHist,current.satHist,CV_COMP_BHATTACHARYYA);
-	double valDistance = compareHist(target.valHist,current.valHist,CV_COMP_BHATTACHARYYA);
-	double lbpDistance = compareHist(targetLBP,currentLBP,CV_COMP_BHATTACHARYYA);
-	double cannyDistance = compareHist(targetCanny,currentCanny,CV_COMP_BHATTACHARYYA);
-	double horDerDistance = compareHist(target.horDerHist,current.horDerHist,CV_COMP_BHATTACHARYYA);
-	double verDerDistance = compareHist(target.verDerHist,current.verDerHist,CV_COMP_BHATTACHARYYA);
-
-	cv::MatND targetEHD = cv::Mat(5,1,CV_32F);
-	cv::MatND currentEHD = cv::Mat(5,1,CV_32F);
-	for(int i = 0; i < 5; i++)
-	{
-		float* targetPtr = targetEHD.ptr<float>(i);
-		float* currentPtr = currentEHD.ptr<float>(i);
-		targetPtr[0] = target.EHD[i];
-		currentPtr[0] = current.EHD[i];
-	}
-	double EHDDistance = compareHist(targetEHD,currentEHD,CV_COMP_BHATTACHARYYA);
-	//完成距离计算过程，
-
-	//计算当前图像块与目标图像块的差异值
-	double dissimilarity = weights[0] * hueDistance + weights[0] * satDistance + weights[0] * valDistance + 
-		weights[0] * lbpDistance + weights[0] * cannyDistance + weights[0] * horDerDistance + 
-		weights[0] * verDerDistance + weights[0] * EHDDistance;
-
-	//std::cout<<"dissimilarity is :"<<dissimilarity<<std::endl;
 	return dissimilarity;
 }
 //根据当前current（正确目标），preTarget（先前存储的），distrator，已抛弃内容，
 void Tracker::featureWeighting(blockFeature& current)
 {
 	//根据论文中给出的公式分别计算各个巴氏距离
-	cv::MatND targetEHD = cv::Mat(5,1,CV_32F);
-	cv::MatND currentEHD = cv::Mat(5,1,CV_32F);
+	discriminator.clearDistance();
+	discriminator.setCurrentFeature(current);
 
-	//current距离与所有distrator的feature巴氏距离均值
-	double meanhueDistance = 0,meansatDistance = 0,meanvalDistance = 0;
-	double meanlbpDistance = 0,meancannyDistance = 0;
-	double meanhorDerDistance = 0,meanverDerDistance = 0,meanEHDDistance = 0;
-
-	cv::MatND currentLBP = cv::Mat(current.cs_lbpFeature);
-	cv::MatND currentCanny = cv::Mat(current.cannyFeature);
-
+	double distance[8];
+	double meanDistance[8];
+	for(int i = 0; i < 8; i++)
+	{
+		distance[i] = 0;
+		meanDistance[i] = 0;
+	}
 	int traversal = rear;
 	while(traversal != front)
-	{   Trackerlet *distratorPtr = distratorList[traversal];
-		cv::MatND targetLBP = cv::Mat(distratorPtr->featureSet.cs_lbpFeature);
-		cv::MatND targetCanny = cv::Mat(distratorPtr->featureSet.cannyFeature);
-
-		meanhueDistance = meanhueDistance + compareHist(distratorPtr->featureSet.hueHist,current.hueHist,CV_COMP_BHATTACHARYYA);
-		meansatDistance = meansatDistance + compareHist(distratorPtr->featureSet.satHist,current.satHist,CV_COMP_BHATTACHARYYA);
-		meanvalDistance = meanvalDistance + compareHist(distratorPtr->featureSet.valHist,current.valHist,CV_COMP_BHATTACHARYYA);
-		meanlbpDistance = meanlbpDistance + compareHist(targetLBP,currentLBP,CV_COMP_BHATTACHARYYA);
-		meancannyDistance = meancannyDistance + compareHist(targetCanny,currentCanny,CV_COMP_BHATTACHARYYA);
-		meanhorDerDistance = meanhorDerDistance + compareHist(distratorPtr->featureSet.horDerHist,current.horDerHist,CV_COMP_BHATTACHARYYA);
-		meanverDerDistance = meanverDerDistance + compareHist(distratorPtr->featureSet.verDerHist,current.verDerHist,CV_COMP_BHATTACHARYYA);
-		for(int i = 0; i < 5; i++)
-		{
-			float* targetPtr = targetEHD.ptr<float>(i);
-			float* currentPtr = currentEHD.ptr<float>(i);
-			targetPtr[0] = distratorPtr->featureSet.EHD[i];
-			currentPtr[0] = current.EHD[i];
-		}
-		meanEHDDistance = meanEHDDistance + compareHist(targetEHD,currentEHD,CV_COMP_BHATTACHARYYA);
+	{   
+		blockFeature distratorFeature = distratorList[traversal]->featureSet;
+		discriminator.computeDistanceHold(distratorFeature);
 		traversal = (traversal + 1) % capacity;
 	}
 	if(rear != front)//表示当前distrator列表非空
 	{
+		discriminator.getDistance(meanDistance);
 		int count = rear < front ? front - rear : front - rear + capacity;
-		meanhueDistance = meanhueDistance / count;
-		meansatDistance = meansatDistance / count;
-		meanvalDistance = meanvalDistance / count;
-		meanlbpDistance = meanlbpDistance / count;
-		meancannyDistance = meancannyDistance / count;
-		meanhorDerDistance = meanhorDerDistance / count;
-		meanverDerDistance = meanverDerDistance / count;
-		meanEHDDistance = meanEHDDistance / count;
+		for(int i = 0; i < 8; i++)
+		{
+			meanDistance[i] = meanDistance[i] / count;//获得与弃用者平均巴氏距离
+		}
 	}
-	
-	//current与preTarget的feature巴氏距离的计算
-	double hueDistance = 0,satDistance = 0,valDistance = 0;
-	double lbpDistance = 0,cannyDistance = 0;
-	double horDerDistance = 0,verDerDistance = 0,EHDDistance = 0;
-
-	cv::MatND targetLBP = cv::Mat(targetTrackerlet->featureSet.cs_lbpFeature);
-	cv::MatND targetCanny = cv::Mat(targetTrackerlet->featureSet.cannyFeature);
-
-	hueDistance = compareHist(targetTrackerlet->featureSet.hueHist,current.hueHist,CV_COMP_BHATTACHARYYA);
-	satDistance = compareHist(targetTrackerlet->featureSet.satHist,current.satHist,CV_COMP_BHATTACHARYYA);
-	valDistance = compareHist(targetTrackerlet->featureSet.valHist,current.valHist,CV_COMP_BHATTACHARYYA);
-	lbpDistance = compareHist(targetLBP,currentLBP,CV_COMP_BHATTACHARYYA);
-	cannyDistance = compareHist(targetCanny,currentCanny,CV_COMP_BHATTACHARYYA);
-	horDerDistance = compareHist(targetTrackerlet->featureSet.horDerHist,current.horDerHist,CV_COMP_BHATTACHARYYA);
-	verDerDistance = compareHist(targetTrackerlet->featureSet.verDerHist,current.verDerHist,CV_COMP_BHATTACHARYYA);
-
-	for(int i = 0; i < 5; i++)
+	blockFeature targetFeature = targetTrackerlet->featureSet;
+	discriminator.computeDistance(targetFeature);
+	discriminator.getDistance(distance);//获取与跟踪目标巴氏距离
+	if(meanDistance[0] != 0)
 	{
-		float* targetPtr = targetEHD.ptr<float>(i);
-		float* currentPtr = currentEHD.ptr<float>(i);
-		targetPtr[0] = targetTrackerlet->featureSet.EHD[i];
-		currentPtr[0] = current.EHD[i];
-	}
-	EHDDistance = compareHist(targetEHD,currentEHD,CV_COMP_BHATTACHARYYA);
-	
-	//完成对feature的权重调整过程，这里仅仅是一种方法，但这是否是最好的方法呢，还有待进一步的确定
-	//最终的目标是weight为正值，同时保证其和为一
-	//分解：一是计算各个feature得分，根据当前三方彼此相似度，区分度计算原则
-	//与target尽可能接近（distance小），同时distrator差异度尽可能大（meandistance大）。
-	//区分度大的feature具有更到的得分
-	//首先分数一定是正值么？这里可以将（meanDistance - distance）进行比例换算，对应到不同的score
-	//二是根据各个feature得分，对weight进行调整，
-	//三是对调整后weight进行归一化，保证其最终和为一
-
-	if(meanhueDistance != 0)
-	{
- 		weights[0] = hueDistance != 0 ? weights[0] + (meanhueDistance -  hueDistance) : weights[0] + meanhueDistance;
-		weights[1] = satDistance != 0 ? weights[1] + (meansatDistance -  satDistance) : weights[1] + meansatDistance;
-		weights[2] = valDistance != 0 ? weights[2] + (meanvalDistance -  valDistance) : weights[2] + meanvalDistance;
-		weights[3] = lbpDistance != 0 ? weights[3] + (meanlbpDistance -  lbpDistance) : weights[3] + meanlbpDistance;
-		weights[4] = cannyDistance != 0 ? weights[4] + (meancannyDistance -  cannyDistance) : weights[4] + meancannyDistance;
-		weights[5] = horDerDistance != 0 ? weights[5] + (meanhorDerDistance -  horDerDistance) : weights[5] + meanhorDerDistance;
-		weights[6] = verDerDistance != 0 ? weights[6] + (meanverDerDistance -  verDerDistance) : weights[6] + meanverDerDistance;
-		weights[7] = EHDDistance != 0 ? weights[7] + (meanEHDDistance -  EHDDistance) : weights[7] + meanEHDDistance;
+		for(int i =0; i < 8; i++)
+		{
+			weights[i] = distance[i] != 0 ? weights[i] + (meanDistance[i] -  distance[i]) : weights[i] + meanDistance[i];
+		}
 	}
 	double sum = 0;
 	for(int i = 0; i < 8; ++i)
@@ -549,7 +469,7 @@ void Tracker::featureWeighting(blockFeature& current)
 	{ 
 		weights[i] = weights[i] / sum;
 	}
-	//完成权重调整，但是还不知道效果如何
+	discriminator.setWeights(weights);
 }
 
 Trackerlet* Tracker::getTrackerlist()

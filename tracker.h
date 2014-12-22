@@ -3,6 +3,7 @@
 
 #include "SymmetryProcess.h"//lockedArea
 #include "featureExtractor.h"//blockFeature
+#include "discriminator.h"
 #include "opencv2/video/tracking.hpp"
 
 typedef struct _trackerlet
@@ -39,6 +40,7 @@ class Tracker
 	cv::Mat processNoise;
 	cv::Mat measurement;
 	FeatureExtractor extractor;
+	Discriminator discriminator;//分辨器
 	cv::KalmanFilter KF;//先设定一个kalman滤波器，看一下，如何进行操作
 
 	LockedArea* lockedPedArea;//检测得到行人存在区域含头结点

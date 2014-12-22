@@ -39,6 +39,9 @@
     <ClCompile Include="manager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="discriminator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mySVM.h">
@@ -57,6 +60,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="tracker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="discriminator.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
