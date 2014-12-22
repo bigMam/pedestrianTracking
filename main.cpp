@@ -6,9 +6,26 @@
 using namespace cv;
 
 extern int videoCut(const char* sourceVideo,const char* targetVideo,int stratSec,int endSec);
+int pedTracking(const char* videoname);
+int main()
+{
+	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2.avi";
+	//const char* targetvideo = "D:\\ImageDataSets\\trackingSamples\\MVI_2722_target_2.avi";
+
+	//videoCut(videoname,targetvideo,1,20);
+
+	//const char* targetVideo = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2_target.avi";
+	//int ex=static_cast<int>(cap.get(CV_CAP_PROP_FOURCC)); 
+	//char EXT[] = {ex & 0XFF , (ex & 0XFF00) >> 8,(ex & 0XFF0000) >> 16,(ex & 0XFF000000) >> 24, 0}; //作用是什么 
+	//cv::Size S = cv::Size((int)cap.get(CV_CAP_PROP_FRAME_WIDTH),  
+	//	(int)cap.get(CV_CAP_PROP_FRAME_HEIGHT) ); 
+	//cv::VideoWriter cap_write;
+	//cap_write.open(targetVideo,ex, cap.get(CV_CAP_PROP_FPS),S, true); //打开写入文件，并指定格式
+	pedTracking(videoname);
+}
+
 int pedTracking(const char* videoname)
 {
-	
 	cv::VideoCapture cap(videoname);
 	if(!cap.isOpened())
 		return -1;
@@ -61,7 +78,6 @@ int pedTracking(const char* videoname)
 		imshow("sourceImage",sourceImage);
 		//cap_write<<sourceImage;
 		if(!isRequest)//当前tracklet更新成功，可以进行tracklet管理过程
-			//如果更新成功则进行传递tracklet，
 		{
 			trackerletlist = tracker.getTrackerlist();
 			manager.setTrackerletList(trackerletlist);
@@ -72,7 +88,7 @@ int pedTracking(const char* videoname)
 				correctTrackerlet = manager.correct();
 				tracker.correctTarget(correctTrackerlet);
 			}
-		}
+		} 
 		char key = cv::waitKey(3);
 		if(key == 27)
 			break;
@@ -81,26 +97,10 @@ int pedTracking(const char* videoname)
 			while(cv::waitKey(3) != 32);
 		}
 		k++;
+
+		tracker.clearList();
 	}
 	cap.release();
 	cv::waitKey(0);
 	return 0;
 }
-int main()
-{
-	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2.avi";
-	//const char* targetvideo = "D:\\ImageDataSets\\trackingSamples\\MVI_2722_target_2.avi";
-
-	//videoCut(videoname,targetvideo,1,20);
-
-	//const char* targetVideo = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2_target.avi";
-	//int ex=static_cast<int>(cap.get(CV_CAP_PROP_FOURCC)); 
-	//char EXT[] = {ex & 0XFF , (ex & 0XFF00) >> 8,(ex & 0XFF0000) >> 16,(ex & 0XFF000000) >> 24, 0}; //作用是什么 
-	//cv::Size S = cv::Size((int)cap.get(CV_CAP_PROP_FRAME_WIDTH),  
-	//	(int)cap.get(CV_CAP_PROP_FRAME_HEIGHT) ); 
-	//cv::VideoWriter cap_write;
-	//cap_write.open(targetVideo,ex, cap.get(CV_CAP_PROP_FPS),S, true); //打开写入文件，并指定格式
-
-	pedTracking(videoname);
-}
-

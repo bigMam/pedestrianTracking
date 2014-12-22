@@ -58,6 +58,7 @@ Tracker::Tracker()
 	{
 		distratorList[i] = NULL;
 	}
+	letNumber = 0;//对得到trackerlet进行编号，编号可自加自减
 }
 
 //对残留内容进行删除操作，主要是distrator列表内容
@@ -88,6 +89,8 @@ bool Tracker::update(cv::Mat &sourceImage)
 		{
 			Trackerlet* trackerlet = new Trackerlet();
 			extractTracklet(sourceImage,lockedPedArea->next,trackerlet);
+
+			trackerlet->occupied++;
 			targetTrackerlet = trackerlet;//这里因为之前没有存在traget，这里可以直接赋值，没有问题
 
 			//在原图上进行绘制，红色表示测量值
@@ -100,7 +103,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 			measurement.at<float>(0) = (float)trackerlet->topLeftX;
 			measurement.at<float>(1) = (float)trackerlet->topLeftY;
 			KF.correct(measurement);//利用当前测量值对其滤波器进行修正
-			//这里直接认定检测得到就是正确的显然是存在问题的，
+			//这里直接认定检测得到就是正确的显然是存在问题的，只能这样认为，否则无法对跟踪目标进行指定
 
 			//遍历删除操作
 			LockedArea *head = lockedPedArea;
@@ -119,56 +122,68 @@ bool Tracker::update(cv::Mat &sourceImage)
 			return true;//表示当前不存在检测矩形框，需要进一步的检测过程，
 		}
 	}
-	else//当前targetTrackerlet存在值，可以进行比较、预测过程
+	else//当前targetTrackerlet存在，可以进行比较、预测过程
 	{
 		Trackerlet* newTargetTrackerlet = NULL;//用于存储新得到tracklet，无论是检测得到还是预测得到
 
 		//首先对lockedPedArea进行遍历判断，两个结果：一个是发现targetTrackerlet，另外就是没有发现，好像废话，，，
-		LockedArea* current = lockedPedArea->next;//遍历判断，这里链表并没有头节点
-		while(current != NULL)
-		{
-			Trackerlet* trackerlet = new Trackerlet();
-			extractTracklet(sourceImage,current,trackerlet);
+		LockedArea* current = lockedPedArea->next;//遍历判断
 
-			//认定为目标行人，阈值后续观察后再进行调节，这里需要加入位置信息
-			if(isTargetTrackerlet(trackerlet))
+		if(current != NULL)//当检测到行人时
+		{
+			while(current != NULL)
 			{
-				newTargetTrackerlet = trackerlet;
-				circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
-				current = current->next;
-				//只能使用测量值对滤波器进行修正，不能够使用预测值进行修正，那样是不对的
-				measurement.at<float>(0) = (float)newTargetTrackerlet->topLeftX;
-				measurement.at<float>(1) = (float)newTargetTrackerlet->topLeftY;
-				KF.correct(measurement);
-				targetTrackerlet = newTargetTrackerlet;
-				break;
+				Trackerlet* trackerlet = new Trackerlet();
+				extractTracklet(sourceImage,current,trackerlet);
+				//认定为目标行人，阈值后续观察后再进行调节，这里需要加入位置信息
+
+				if(isTargetTrackerlet(trackerlet))
+				{
+					//绘制
+					circle(sourceImage,cv::Point(trackerlet->topLeftX,trackerlet->topLeftY),5,CV_RGB(255,0,0),3);
+
+					//只能使用测量值对滤波器进行修正，不能够使用预测值进行修正，那样是不对的
+					measurement.at<float>(0) = (float)trackerlet->topLeftX;
+					measurement.at<float>(1) = (float)trackerlet->topLeftY;
+					KF.correct(measurement);
+
+					//临时存储
+					newTargetTrackerlet = trackerlet;//仅仅是将当前相似trackerlet保存下来，还没有进行替换targetTrackerlet过程
+					//move2next
+					current = current->next;
+					break;
+				}
+				else//加入distrator列表,同时将其加入到targetTarcker中后方
+				{
+					insertList(trackerlet);
+					insertDistrator(trackerlet);
+					//发现问题了，这里将内容存储到distrator中，同时存放到trakerletList，当一遍消除是，另一边将发生意外，
+					//因此这里需要对双方进行约束，是进行删除，还是进行简单移除，需要进行判定，
+					current = current->next;
+				}
 			}
-			else//加入distrator列表
+			//将剩余tracklet放入distrator
+			while(current != NULL)
 			{
+				Trackerlet* trackerlet = new Trackerlet();
+				extractTracklet(sourceImage,current,trackerlet);
+
+				insertList(trackerlet);
 				insertDistrator(trackerlet);
 				current = current->next;
 			}
+			//使用结束之后，清空lockedPedArea操作,遍历删除
+			LockedArea *head = lockedPedArea;
+			current = lockedPedArea->next;
+			while(current != NULL)
+			{
+				LockedArea* tmp = current;
+				head->next = current->next;
+				delete tmp;
+				current = head->next;
+			}
 		}
-		//将剩余tracklet放入distrator
-		while(current != NULL)
-		{
-			Trackerlet* trackerlet = new Trackerlet();
-			extractTracklet(sourceImage,current,trackerlet);
-			insertDistrator(trackerlet);
-			current = current->next;
-		}
-
-		//使用结束之后，清空lockedPedArea操作,遍历删除
-		LockedArea *head = lockedPedArea;
-		current = lockedPedArea->next;
-		while(current != NULL)
-		{
-			LockedArea* tmp = current;
-			head->next = current->next;
-			delete tmp;
-			current = head->next;
-		}
-
+		
 		if(newTargetTrackerlet == NULL)//之前经由lockedPedArea，并没有得到可用的trackerlet，需要经由kalman进行滤波预测
 		{
 			Mat prediction = KF.predict();//利用滤波器对当前检测tracklet矩形进行预测
@@ -187,27 +202,49 @@ bool Tracker::update(cv::Mat &sourceImage)
 			{
 				//将预测结果保存下来
 				Trackerlet* trackerlet = new Trackerlet();
-				trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
+				letNumber++;
+				trackerlet->trackerletID = letNumber;//这个ID暂时没有什么意义，先临时放在这里
 				trackerlet->topLeftX = predictX;
 				trackerlet->topLeftY = predictY;
 				trackerlet->width = targetTrackerlet->width;
 				trackerlet->height = targetTrackerlet->height;
 				trackerlet->setBlockFeature(target);
 				trackerlet->next = NULL;
+				trackerlet->occupied = 0;
 
-				newTargetTrackerlet = trackerlet;
+				newTargetTrackerlet = trackerlet;//临时存储新近得到targetTrackerlet
 				//在原图上进行绘制，绿色表示预测值
 				circle(sourceImage,cv::Point(predictX,predictY),5,CV_RGB(0,255,0),3);
 				cv::rectangle(sourceImage,
 					cv::Rect(predictX,predictY,targetTrackerlet->width,targetTrackerlet->height),
 					cv::Scalar(255,0,0),2);
+
+				//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 			}
 		}
-		//终于到这里了，根据三方内容进行权重调节
-		featureWeighting(newTargetTrackerlet->featureSet);
+		//这里将targetTrackerlet内容使用newTargetTrackerlet进行替代，同时保证原始列表内容不变
+		newTargetTrackerlet->next = targetTrackerlet->next;
 
-		targetTrackerlet = newTargetTrackerlet;//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
-		
+		targetTrackerlet->next = NULL;
+		Trackerlet* tmp = targetTrackerlet;
+
+		tmp->occupied--;
+		if(tmp->occupied == 0)
+		{
+			delete tmp;//这里可以直接进行删除操作么？有没有可能被其他占有呢？可以直接删除
+			letNumber--;
+		}
+
+		newTargetTrackerlet->occupied++;
+		targetTrackerlet = newTargetTrackerlet;
+
+		//终于到这里了，根据三方内容进行权重调节
+		featureWeighting(targetTrackerlet->featureSet);
+
+		//必定不会严格按照你的所有想法展开，因此在设计算法的时候要有足够的鲁棒性才可以
+
+		//每个阶段对targetTrackerlet进行一次更新，这里的内容还不是特别明确，是否在每个阶段的末尾对list进行清空呢？
+		//需要进行清空操作么？需要，那么对targettrackerlet需要怎样进行处理呢？保留，在之后还需要进行下一阶段的相似度判断
 		return false;//表示不需要进行检测，可以继续进行下一次循环
 	}
 }
@@ -292,13 +329,16 @@ void Tracker::extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Tra
 	blockFeature target;
 	extractor.computeFeature(subImage,target);
 
-	trackerlet->trackerletID = 0;//这个ID暂时没有什么意义，先临时放在这里
+	letNumber++;
+	trackerlet->trackerletID = letNumber;//这个ID暂时没有什么意义，先临时放在这里
 	trackerlet->topLeftX = letTopLeftX;
 	trackerlet->topLeftY = letTopLeftY;
 	trackerlet->width = letWidth;
 	trackerlet->height = letHeight;
 	trackerlet->setBlockFeature(target);
 	trackerlet->next = NULL;
+
+	trackerlet->occupied = 0;
 
 	//对矩形框进行标定
 	cv::rectangle(sourceImage,cv::Rect(letTopLeftX,letTopLeftY,letWidth,letHeight),cv::Scalar(255,0,0),2);
@@ -335,29 +375,37 @@ bool Tracker::isTargetTrackerlet(Trackerlet* current)
 }
 
 //将tracket插入到distrator列表中，并保证容量不超过上限，在超出时，能够删除last one
-void Tracker::insertDistrator(Trackerlet* tracklet)
+void Tracker::insertDistrator(Trackerlet* trackerlet)
 {
 	//可以使用队列的形式，FIFO，符合队列操作一般特性，
 	//操作到后面，往往是利用新添加元素将指定元素进行替换，在队列已满的情形下，也是能够快速插入的
 
+
 	//注：front 指向队头后一个元素，rear指向队尾元素
+	trackerlet->occupied++;
 	if((front + 1)%capacity == rear)//队满
-	{
-		//插入之后需要将队尾元素出队
-		distratorList[front] = tracklet;
-		front = (front + 1)%capacity;
-		//队尾元素出队
+	{	
+		//插入之前需要将队尾元素出队	
 		Trackerlet* tmp = distratorList[rear];
-		//将元素删除
-		delete tmp;
+		
+		tmp->occupied--;
+		if(tmp->occupied == 0)
+		{
+			delete tmp;//有必要则将元素删除
+			letNumber--;
+		}
 		rear = (rear + 1)%capacity;
+
+		distratorList[front] = trackerlet;
+		front = (front + 1)%capacity;
+		
+		//这里就比链表要方便一些，因为仅仅是存储了指针信息，可以方便的进行赋值操作
 	}
 	else//队未满可以直接进行插入操作
 	{
-		distratorList[front] = tracklet;
+		distratorList[front] = trackerlet;
 		front = (front + 1)%capacity;
 	}
-
 }
 
 //计算当前特征与目标特征之间的差值
@@ -515,4 +563,34 @@ void Tracker::correctTarget(Trackerlet* correctTrackerlet)
 {
 	targetTrackerlet = correctTrackerlet;//这样直接进行修正是存在风险的，一是之前内容没有delete，
 	//二是所指向的内容很有可能会在之后的某个时间点被清除，从而存在targetTrackerlet指向NULL的情况发生
+}
+
+//将元素插入链表，这里如果使用STL会更加方便一些？先实现，这个属于后期的优化过程？是这样么
+void Tracker::insertList(Trackerlet* trackerlet)
+{
+	trackerlet->occupied++;
+	//简单的头插法实现插入操作
+	trackerlet->next = targetTrackerlet->next;
+	targetTrackerlet->next = trackerlet;
+}
+
+void Tracker::clearList()//对targetTrackerlet列表进行清空操作，仅保留首个节点
+{
+	if(targetTrackerlet == NULL)
+		return;
+	Trackerlet *curr,*tmp;
+	curr = targetTrackerlet->next;
+	while(curr != NULL)//对列表进行清空操作
+	{
+		tmp = curr;
+		targetTrackerlet->next = curr->next;
+		tmp->occupied--;
+		if(tmp->occupied == 0)
+		{
+			delete tmp;
+			tmp = NULL;
+			letNumber--;
+		}
+		curr = targetTrackerlet->next;
+	}
 }
