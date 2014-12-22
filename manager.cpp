@@ -29,9 +29,9 @@ bool Manager::dicision()
 		trackerletList->occupied++;
 		targetPool[front++] = trackerletList;//将头结点内容入池
 	}
-	else//目标池非空的情形下，需要对头结点进行判定，是否为指定目标
+	else//目标池非空的情形下，需要对头结点进行判定，
 	{
-		//这里同样需要计算两blockfeature的差值，是否可以将这一个函数单独提取出来呢？
+		
 
 	}
 

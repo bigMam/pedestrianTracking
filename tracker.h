@@ -49,14 +49,14 @@ class Tracker
 	//先仅仅跟踪一个行人，之后再进行调整，不可能一次将所有内容都考虑进来
 	//这里targetTrackerlet为列表形式，第一个元素为跟踪目标，其后为当前检测得到其他目标
 
-	double weights[8];//特征权重
+	double weights[8];//更新权重，分别对当前discriminator变量，及manager中discriminator变量进行权重更新
 
 	Trackerlet* distratorList[6];//这里是将抛弃tracklet内容保存下来用于更新特征值权重，这里需要另外一个空间来辅助判断队空or队满
 	static const int capacity = 6;//distrator列表容量上限，超过则将oldest one删除
 	int front;//队头下标
 	int rear;//队尾下标
 
-	int letNumber;
+	int letNumber;//trackerlet编号
 
 public:
 	Tracker();
@@ -75,7 +75,8 @@ public:
 	void insertDistrator(Trackerlet* tracklet);//将丢弃tracklet加入distrator，同时保证distrator容量上限
 	bool isTargetTrackerlet(Trackerlet* current);//判断当前trackerlet是否为目标targetTrackerlet
 
-	void correctTarget(Trackerlet* correctTrackerlet);
+
+	void correctTarget(Trackerlet* correctTrackerlet);//对跟踪目标进行修正过程
 	Trackerlet* getTrackerlist();
 	void clearList();
 	void insertList(Trackerlet* trackerlet);

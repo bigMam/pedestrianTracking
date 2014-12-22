@@ -413,7 +413,6 @@ void Tracker::insertDistrator(Trackerlet* trackerlet)
 //计算当前特征与目标特征之间的差值
 double Tracker::distinguish(blockFeature& target, blockFeature& current)
 {
-	discriminator.clearDistance();
 	discriminator.setCurrentFeature(current);
 	discriminator.computeDistance(target);
 	double dissimilarity = discriminator.distinguish();
@@ -476,7 +475,6 @@ Trackerlet* Tracker::getTrackerlist()
 {
 	return targetTrackerlet;
 }
-
 
 //利用反馈结果对targetTrackerlet进行修正
 void Tracker::correctTarget(Trackerlet* correctTrackerlet)

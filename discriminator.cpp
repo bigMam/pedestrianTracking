@@ -25,6 +25,8 @@ void Discriminator::setCurrentFeature(blockFeature& feature)
 //计算瞬时两feature集合的距离
 void Discriminator::computeDistance(blockFeature& target)
 {
+	count = 0;//简单清零操作，避免出现累加问题
+
 	targetLBP = cv::Mat(target.cs_lbpFeature);
 	targetCanny = cv::Mat(target.cannyFeature);
 
@@ -68,11 +70,11 @@ void Discriminator::computeDistanceHold(blockFeature& target)
 
 void Discriminator::clearDistance()
 {
+	count = 0;
 	for(int i = 0; i < 8; i++)
 	{
 		distance[i] = 0.0;
 	}
-	count = 0;
 }
 
 //根据当前各子feature的距离值，计算差异值
@@ -105,3 +107,4 @@ void Discriminator::setWeights(double inputWeights[])
 }
 
 //尝试在对tracker总体不变的情形下，仅对函数体内部进行修改，保持接口不变，看能否完成discriminator的添加
+//完成既定目标，说明接口设计还是基本合理的

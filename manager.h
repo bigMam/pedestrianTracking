@@ -1,7 +1,12 @@
 
 //实现对trackerlet的管理工作，在必要的时刻完成跟踪目标的遮挡处理，
 //能够在目标再次出现时，快速定位
+#pragma once
 #include "tracker.h"
+#include "discriminator.h"
+
+//问题是这里与tracker使用的是同一个分辨器，有必要分成两部分么？
+//显然是不能分开的，但是不分开能够很好的完成么？不能，这样可以将weights进行刷新到当前discriminator中
 class Manager
 {
 private:
