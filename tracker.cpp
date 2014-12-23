@@ -224,6 +224,12 @@ bool Tracker::update(cv::Mat &sourceImage)
 				//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 			}
 		}
+
+		////??????????????存在问题
+
+		//终于到这里了，根据三方内容进行权重调节
+		featureWeighting(newTargetTrackerlet->featureSet);
+
 		//这里将targetTrackerlet内容使用newTargetTrackerlet进行替代，同时保证原始列表内容不变
 		newTargetTrackerlet->next = targetTrackerlet->next;
 
@@ -236,13 +242,8 @@ bool Tracker::update(cv::Mat &sourceImage)
 			delete tmp;//这里可以直接进行删除操作么？有没有可能被其他占有呢？可以直接删除
 			letNumber--;
 		}
-
 		newTargetTrackerlet->occupied++;
 		targetTrackerlet = newTargetTrackerlet;
-
-		//终于到这里了，根据三方内容进行权重调节
-		featureWeighting(targetTrackerlet->featureSet);
-
 		//必定不会严格按照你的所有想法展开，因此在设计算法的时候要有足够的鲁棒性才可以
 
 		//每个阶段对targetTrackerlet进行一次更新，这里的内容还不是特别明确，是否在每个阶段的末尾对list进行清空呢？
@@ -433,6 +434,8 @@ void Tracker::featureWeighting(blockFeature& current)
 		distance[i] = 0;
 		meanDistance[i] = 0;
 	}
+
+	//获得与distrator平均巴氏距离
 	int traversal = rear;
 	while(traversal != front)
 	{   
@@ -446,12 +449,16 @@ void Tracker::featureWeighting(blockFeature& current)
 		int count = rear < front ? front - rear : front - rear + capacity;
 		for(int i = 0; i < 8; i++)
 		{
-			meanDistance[i] = meanDistance[i] / count;//获得与弃用者平均巴氏距离
+			meanDistance[i] = meanDistance[i] / count;
 		}
 	}
+
+	//获取与跟踪目标巴氏距离
 	blockFeature targetFeature = targetTrackerlet->featureSet;
 	discriminator.computeDistance(targetFeature);
-	discriminator.getDistance(distance);//获取与跟踪目标巴氏距离
+	discriminator.getDistance(distance);
+
+	//根据distance进行权重计算
 	if(meanDistance[0] != 0)
 	{
 		for(int i =0; i < 8; i++)
@@ -459,6 +466,7 @@ void Tracker::featureWeighting(blockFeature& current)
 			weights[i] = distance[i] != 0 ? weights[i] + (meanDistance[i] -  distance[i]) : weights[i] + meanDistance[i];
 		}
 	}
+
 	double sum = 0;
 	for(int i = 0; i < 8; ++i)
 	{
