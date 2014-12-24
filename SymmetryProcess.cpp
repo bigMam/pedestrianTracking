@@ -608,7 +608,6 @@ void SymmetryProcess::statisticNew()
 	//当前包含信息，每列的底端位置，每列的底端累加值，
 	//不用考虑各个底端在不同的扫描线上，最终的累加效果是一样的，所以当前只需要在bottomInfo[i][1]中寻找峰值就可以了
 
-
 	////对峰值进行绘制
 	//int maxPlotLength = 50;
 	//int maxSymVal = thresholdMax[10];
@@ -780,14 +779,6 @@ void SymmetryProcess::lockPedestrianArea()
 		plotBox(sourceImage,topLeftX,topLeftY ,winWidthS,winHighS);
 
 	}
-	//完成对提取行人区域的保存，下一步是在对其进行resize，并计算得到特征描述算子进行分类匹配
-	//LockedArea* p = lockedPedArea->next;
-	//while(p!= NULL)
-	//{
-	//	cout<<p->height<<" ";
-	//	p = p->next;
-	//}
-	//std::cout<<std::endl;
 	imshow("sourceImage0",sourceImage);//显示效果不错，下一步，将行人区域提取出来，进行特征值计算及后期的匹配
 	
 }
@@ -850,7 +841,6 @@ void SymmetryProcess::getArea()
 		cout<<endl;
 	}
 	//统计结束之后，对邻近部分进行合并，同时过滤掉仅有一列的元素,剔除单列元素较为简单，麻烦的是如何进行合并，
-
 	//需要设定列数少于多少进行删除，距离小于多少进行合并
 	//首先是判断能否进行合并，能合并，则合并之，其次在没有进行合并的情况下，再判断是否需要进行清除
 	
