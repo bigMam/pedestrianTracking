@@ -97,15 +97,13 @@ void SymmetryProcess::initParam()
 	//endPos = 230;
 	//interval = (endPos - startPos)/11;//10
 
+
 	lockedPedArea = new LockedArea(); 
 	lockedPedArea->topLeftX = 0;
 	lockedPedArea->topLeftY = 0;
 	lockedPedArea->width = 0;
 	lockedPedArea->height = 0;
 	lockedPedArea->next = NULL;
-
-
-
 }
 void SymmetryProcess::loadImage(const char* filename)
 {
@@ -134,6 +132,7 @@ void SymmetryProcess::cannyProc()
 	start = clock();
 	GaussianBlur(destImage, destImage, Size(7,7), 1.5, 1.5);
 	int low = 40;//之前测试最优结果为，40
+
 	double high = low / 0.4;
 	
 	Canny(destImage, edgeImage, low, high, 3);//>>>O_O<<<<这里有一点文章可做，怎样选择最优的阈值，使得前景与背景尽可能多的分离开来
@@ -724,6 +723,7 @@ void SymmetryProcess::lockPedestrianArea()
 		current = tmp;
 	}
 	lockedPedArea->next = NULL;
+
 	int location,scanLineNum;
 	float increase;
 	int bottomPos,bottomPosS;

@@ -1,4 +1,7 @@
 #pragma once
+
+
+>>>>>>> 7f01ffbf1f41a805aa2d0ce944e058494ccdff2c
 #include <opencv2\core\core.hpp>
 #include <opencv2\highgui\highgui.hpp>
 #include <opencv2\imgproc\imgproc.hpp>
@@ -25,6 +28,7 @@ typedef struct _feature
 class FeatureExtractor
 {
 public:
+
 	FeatureExtractor(){};
 	~FeatureExtractor(){};
 
@@ -39,7 +43,7 @@ public:
 	void EHDExtarctor(const cv::Mat& gray,blockFeature& feature);
 
 	void computeFeature(const cv::Mat& src,blockFeature &feature);
-	//功能单一性，这里仅仅完成二次特征提取工作，至于后续的区分度计算及权重调整，则不需要操心了
+
 
 private:
 	int nbins;//当前单个cell中的直方图维度，lbp为16；H、S、V分别为1，明确

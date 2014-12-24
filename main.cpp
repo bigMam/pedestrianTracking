@@ -66,8 +66,6 @@ int pedTracking(const char* videoname)
 				cv::rectangle(sourceImage,rect,Scalar(0,0,0),1);
 				tmp= tmp->next;
 			}
-			//这里直接将指针进行传递，这样是否可行？这样的话，tracker中始终是最新的检测结果，在两次检测期间
-			//则保存上次检测结果，这样有什么用呢
 			tracker.setLoackedPedArea(current);//将当前得到的结果存储到tracker中，用于生成新的tracklet
 			k = 0;
 			isRequest = false;
