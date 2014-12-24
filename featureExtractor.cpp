@@ -221,6 +221,7 @@ void FeatureExtractor::CS_LBPExtractor(const cv::Mat& gray,blockFeature& feature
 }
 
 
+
 /**************************ÌáÈ¡Canny±ßÔµÌØÕ÷********************************/
 
 void FeatureExtractor::CannyExtractor(const cv::Mat& gray,blockFeature& feature)

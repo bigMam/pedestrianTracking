@@ -96,7 +96,6 @@ void SymmetryProcess::initParam()
 	//startPos = 120;
 	//endPos = 230;
 	//interval = (endPos - startPos)/11;//10
-
 	lockedPedArea = new LockedArea(); 
 	lockedPedArea->topLeftX = 0;
 	lockedPedArea->topLeftY = 0;
