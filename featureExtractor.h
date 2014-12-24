@@ -1,7 +1,4 @@
 #pragma once
-
-
->>>>>>> 7f01ffbf1f41a805aa2d0ce944e058494ccdff2c
 #include <opencv2\core\core.hpp>
 #include <opencv2\highgui\highgui.hpp>
 #include <opencv2\imgproc\imgproc.hpp>
