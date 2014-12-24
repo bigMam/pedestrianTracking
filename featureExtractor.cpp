@@ -25,8 +25,6 @@ const float* FeatureExtractor::getBlockHistogram(float* buf,cv::Mat& img,int nbi
 
 	for( k = 0; k < winHistogramSize; k++ )
         blockHist[k] = 0.f;//对当前直方图进行初始化操作，初始化为0.f
-
-
 	const PixData* _pixData = &cache.pixData[0];//获得pixData的指针
 	const uchar* lbpPtr = img.ptr<uchar>(0);
 
