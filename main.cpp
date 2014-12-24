@@ -106,3 +106,4 @@ int pedTracking(const char* videoname)
 	cv::waitKey(0);
 	return 0;
 }
+

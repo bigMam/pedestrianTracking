@@ -222,6 +222,11 @@ void FeatureExtractor::CS_LBPExtractor(const cv::Mat& gray,blockFeature& feature
 	getBlockHistogram(buf,dest,nbins);
 }
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> dev
 /**************************提取Canny边缘特征********************************/
 
 void FeatureExtractor::CannyExtractor(const cv::Mat& gray,blockFeature& feature)
@@ -257,6 +262,7 @@ void FeatureExtractor::CannyExtractor(const cv::Mat& gray,blockFeature& feature)
 }
 
 
+
 /**************************提取垂直水平方向一阶求导特征**********************/
 
 void FeatureExtractor::horVerDerExtractor(const cv::Mat& gray,blockFeature& feature)
@@ -289,6 +295,7 @@ void FeatureExtractor::horVerDerExtractor(const cv::Mat& gray,blockFeature& feat
 		false );
 	cv::normalize(feature.verDerHist,feature.verDerHist,1.0,NORM_MINMAX);
 }
+
 
 
 /**************************提取EHD边缘直方图特征******************************/

@@ -152,6 +152,7 @@ void SVMDetector::detectBaseOnSymmetry(cv::Mat &sourceImage)
 	sp.loadImage(sourceImage);//加载待处理图像,需要进行判断，如果不是灰度图像，需要进行转化
 
 	sp.cannyProc();//提取边缘信息
+
 	sp.AddScanLines();//在指定区域设定扫描线，非必要
 	sp.computeSymmetryCurve();//重点，计算扫描线上各像素对称值
 	sp.plotCurve();  //针对每条扫描线绘制对应的对称值曲线图，非必要

@@ -1,4 +1,6 @@
 #pragma once
+
+
 #include <opencv2\core\core.hpp>
 #include <opencv2\highgui\highgui.hpp>
 #include <opencv2\imgproc\imgproc.hpp>
@@ -33,6 +35,7 @@ public:
 	const float* getBlockHistogram(float* buf,cv::Mat& img,int nbins);//获得当前窗口内的直方图
     void normalizeBlockHistogram(float* histogram) const;//归一化直方图
 
+
 	void HSVExtractor(const cv::Mat& src,blockFeature& feature);
 	void CS_LBPExtractor(const cv::Mat& gray,blockFeature& feature);
 	void CannyExtractor(const cv::Mat& gray,blockFeature& feature);
@@ -42,8 +45,11 @@ public:
 	void computeFeature(const cv::Mat& src,blockFeature &feature);
 
 
+	//功能单一性，这里仅仅完成二次特征提取工作，至于后续的区分度计算及权重调整，则不需要操心了
+
 private:
 	int nbins;//当前单个cell中的直方图维度，lbp为16；H、S、V分别为1，明确
 	int winHistogramSize;//单个窗口计算得到描述算子维数
 	DESCache cache;
+
 };
