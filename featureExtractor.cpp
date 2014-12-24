@@ -25,8 +25,6 @@ const float* FeatureExtractor::getBlockHistogram(float* buf,cv::Mat& img,int nbi
 
 	for( k = 0; k < winHistogramSize; k++ )
         blockHist[k] = 0.f;//对当前直方图进行初始化操作，初始化为0.f
-
-
 	const PixData* _pixData = &cache.pixData[0];//获得pixData的指针
 	const uchar* lbpPtr = img.ptr<uchar>(0);
 
@@ -109,6 +107,7 @@ void FeatureExtractor::normalizeBlockHistogram(float* _hist) const
     for( i = 0; i < sz; i++ )
         hist[i] *= scale;//直接乘以系数，得到最终的归一化结果
 }
+
 
 
 /**************************提取HSV颜色空间特征****************************/
@@ -221,6 +220,7 @@ void FeatureExtractor::CS_LBPExtractor(const cv::Mat& gray,blockFeature& feature
 }
 
 
+
 /**************************提取Canny边缘特征********************************/
 void FeatureExtractor::CannyExtractor(const cv::Mat& gray,blockFeature& feature)
 {
@@ -255,7 +255,9 @@ void FeatureExtractor::CannyExtractor(const cv::Mat& gray,blockFeature& feature)
 }
 
 
+
 /**************************提取垂直水平方向一阶求导特征**********************/
+
 void FeatureExtractor::horVerDerExtractor(const cv::Mat& gray,blockFeature& feature)
 {
 
@@ -286,6 +288,7 @@ void FeatureExtractor::horVerDerExtractor(const cv::Mat& gray,blockFeature& feat
 		false );
 	cv::normalize(feature.verDerHist,feature.verDerHist,1.0,NORM_MINMAX);
 }
+
 
 
 /**************************提取EHD边缘直方图特征******************************/
@@ -420,4 +423,3 @@ void FeatureExtractor::computeFeature(const cv::Mat& src,blockFeature& feature)
 	horVerDerExtractor(gray,feature);
 	EHDExtarctor(gray,feature);
 }
-
