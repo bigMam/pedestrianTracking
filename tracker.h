@@ -55,7 +55,6 @@ class Tracker
 	static const int capacity = 6;//distrator列表容量上限，超过则将oldest one删除
 	int front;//队头下标
 	int rear;//队尾下标
-
 	int letNumber;//trackerlet编号
 
 public:
@@ -80,4 +79,5 @@ public:
 	Trackerlet* getTrackerlist();
 	void clearList();
 	void insertList(Trackerlet* trackerlet);
+	void getWeights(double outputWeights[]);
 };

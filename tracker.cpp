@@ -2,6 +2,7 @@
 //将检测得到pedArea存储到tracker中，这里不能直接使用引用吧，
 //假设是使用同一内存空间，则后续的改变，将对其造成影响。，貌似没有问题，等出现问题再进行修改吧
 
+
 #define HAVE_BORDER 1
 //使用边界预测，但是对其不进行赋值，对角坐标预测效果反而不错，暂时不追究其原因，先将整个代码跑通，框架搭好先
 Tracker::Tracker()
@@ -115,6 +116,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 				LockedArea* tmp = current;
 				head->next = current->next;
 				delete tmp;
+				tmp = NULL;
 				current = head->next;
 			}
 			return false;
@@ -182,6 +184,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 				LockedArea* tmp = current;
 				head->next = current->next;
 				delete tmp;
+				tmp = NULL;
 				current = head->next;
 			}
 		}
@@ -204,7 +207,10 @@ bool Tracker::update(cv::Mat &sourceImage)
 			{
 				//将预测结果保存下来
 				Trackerlet* trackerlet = new Trackerlet();
+
 				letNumber++;
+				if(letNumber > 10000) letNumber = 0;
+
 				trackerlet->trackerletID = letNumber;//这个ID暂时没有什么意义，先临时放在这里
 				trackerlet->topLeftX = predictX;
 				trackerlet->topLeftY = predictY;
@@ -224,27 +230,22 @@ bool Tracker::update(cv::Mat &sourceImage)
 				//这里需要仔细看一下，这样做可以么？会不会指向同一位置的内容被改变呢，不会的
 			}
 		}
-
-		////??????????????存在问题
-
 		//终于到这里了，根据三方内容进行权重调节
 		featureWeighting(newTargetTrackerlet->featureSet);
 
+
 		//这里将targetTrackerlet内容使用newTargetTrackerlet进行替代，同时保证原始列表内容不变
 		newTargetTrackerlet->next = targetTrackerlet->next;
-
 		targetTrackerlet->next = NULL;
-		Trackerlet* tmp = targetTrackerlet;
 
+		Trackerlet* tmp = targetTrackerlet;
 		tmp->occupied--;
 		if(tmp->occupied == 0)
 		{
 			delete tmp;//这里可以直接进行删除操作么？有没有可能被其他占有呢？可以直接删除
-			letNumber--;
 		}
 		newTargetTrackerlet->occupied++;
-		targetTrackerlet = newTargetTrackerlet;
-		//必定不会严格按照你的所有想法展开，因此在设计算法的时候要有足够的鲁棒性才可以
+		targetTrackerlet = newTargetTrackerlet;//对targetTrackerlet内容进行更新
 
 		//每个阶段对targetTrackerlet进行一次更新，这里的内容还不是特别明确，是否在每个阶段的末尾对list进行清空呢？
 		//需要进行清空操作么？需要，那么对targettrackerlet需要怎样进行处理呢？保留，在之后还需要进行下一阶段的相似度判断
@@ -252,7 +253,7 @@ bool Tracker::update(cv::Mat &sourceImage)
 	}
 }
 
-//deprecated
+//deprecated，之后可能会用来进行kalman改进测试使用，故保留
 bool Tracker::update(cv::Mat &sourceImage,bool haveRectBoxing)
 {
 	//表示当前有新鲜出炉的行人检测矩形框，不需要进行预测过程？有待商榷
@@ -333,6 +334,7 @@ void Tracker::extractTracklet(cv::Mat &sourceImage,LockedArea* lockedPedArea,Tra
 	extractor.computeFeature(subImage,target);
 
 	letNumber++;
+	if(letNumber > 10000) letNumber = 0;
 	trackerlet->trackerletID = letNumber;//这个ID暂时没有什么意义，先临时放在这里
 	trackerlet->topLeftX = letTopLeftX;
 	trackerlet->topLeftY = letTopLeftY;
@@ -383,7 +385,6 @@ void Tracker::insertDistrator(Trackerlet* trackerlet)
 	//可以使用队列的形式，FIFO，符合队列操作一般特性，
 	//操作到后面，往往是利用新添加元素将指定元素进行替换，在队列已满的情形下，也是能够快速插入的
 
-
 	//注：front 指向队头后一个元素，rear指向队尾元素
 	trackerlet->occupied++;
 	if((front + 1)%capacity == rear)//队满
@@ -395,7 +396,7 @@ void Tracker::insertDistrator(Trackerlet* trackerlet)
 		if(tmp->occupied == 0)
 		{
 			delete tmp;//有必要则将元素删除
-			letNumber--;
+			tmp = NULL;
 		}
 		rear = (rear + 1)%capacity;
 
@@ -416,11 +417,12 @@ double Tracker::distinguish(blockFeature& target, blockFeature& current)
 {
 	discriminator.setCurrentFeature(current);
 	discriminator.computeDistance(target);
-	double dissimilarity = discriminator.distinguish();
 
-	return dissimilarity;
+	return discriminator.distinguish();
 }
+
 //根据当前current（正确目标），preTarget（先前存储的），distrator，已抛弃内容，
+/***********可能存在问题(最终得到weights存在负值)，标记一下**********/
 void Tracker::featureWeighting(blockFeature& current)
 {
 	//根据论文中给出的公式分别计算各个巴氏距离
@@ -466,7 +468,6 @@ void Tracker::featureWeighting(blockFeature& current)
 			weights[i] = distance[i] != 0 ? weights[i] + (meanDistance[i] -  distance[i]) : weights[i] + meanDistance[i];
 		}
 	}
-
 	double sum = 0;
 	for(int i = 0; i < 8; ++i)
 	{
@@ -482,13 +483,6 @@ void Tracker::featureWeighting(blockFeature& current)
 Trackerlet* Tracker::getTrackerlist()
 {
 	return targetTrackerlet;
-}
-
-//利用反馈结果对targetTrackerlet进行修正
-void Tracker::correctTarget(Trackerlet* correctTrackerlet)
-{
-	targetTrackerlet = correctTrackerlet;//这样直接进行修正是存在风险的，一是之前内容没有delete，
-	//二是所指向的内容很有可能会在之后的某个时间点被清除，从而存在targetTrackerlet指向NULL的情况发生
 }
 
 //将元素插入链表，这里如果使用STL会更加方便一些？先实现，这个属于后期的优化过程？是这样么
@@ -515,8 +509,73 @@ void Tracker::clearList()//对targetTrackerlet列表进行清空操作，仅保留首个节点
 		{
 			delete tmp;
 			tmp = NULL;
-			letNumber--;
 		}
 		curr = targetTrackerlet->next;
+	}
+}
+
+void Tracker::getWeights(double outputWeights[])
+{
+	for(int i = 0; i < 8; i++)
+	{
+		outputWeights[i] = weights[i];
+	}
+}
+
+//利用反馈结果对targetTrackerlet进行修正
+void Tracker::correctTarget(Trackerlet* correctTrackerlet)
+{
+	if(correctTrackerlet != NULL)//经由manager反馈对跟踪目标进行修正，也就是说重新开始了，
+	//需要将targettrackerlet修正，kalman内容清空，distrator内容？weights内容？
+	{
+		//kalman清空及修正过程
+		setIdentity(KF.measurementMatrix);//测量矩阵
+		setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));
+		setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-1));
+		setIdentity(KF.errorCovPost, cv::Scalar::all(1));
+		randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
+		//修正
+		Mat prediction = KF.predict();
+		measurement.at<float>(0) = (float)correctTrackerlet->topLeftX;
+		measurement.at<float>(1) = (float)correctTrackerlet->topLeftY;
+		KF.correct(measurement);//利用当前测量值对其滤波器进行修正
+
+		//权重重新初始化操作
+		for(int i = 0; i < 8; ++i)
+		{
+			weights[i] = 1.0 / 8;
+		}
+		//对discriminator内容进行清空
+		discriminator.setWeights(weights);
+
+		//distrator列表清空操作
+		int traversal = rear;
+		while(traversal != front)
+		{   
+			Trackerlet* tmp = distratorList[traversal];
+			tmp->occupied--;
+			if(tmp->occupied == 0)
+			{
+				delete tmp;//有必要则将元素删除
+				tmp = NULL;
+			}
+			traversal = (traversal + 1) % capacity;
+		}
+		front = 0; rear = 0;
+
+		//对targetTrackerlet链表修正，（此时链表内容并非仅仅只有头结点）
+		//主要是将correct确定为target，同时将其他内容放置于distrator中？这样可以么
+		Trackerlet* current = targetTrackerlet;
+		while(current != NULL)
+		{
+			if(current != correctTrackerlet)//将链表中其他节点入distrator
+			{
+				current->occupied--;//从列表中解放
+				insertDistrator(current);
+			}
+		}
+		correctTrackerlet->next = NULL;
+		targetTrackerlet = correctTrackerlet;
+		featureWeighting(targetTrackerlet->featureSet);//进行第一次权重调整
 	}
 }

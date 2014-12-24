@@ -7,6 +7,7 @@ using namespace cv;
 
 extern int videoCut(const char* sourceVideo,const char* targetVideo,int stratSec,int endSec);
 int pedTracking(const char* videoname);
+
 int main()
 {
 	const char* videoname = "D:\\ImageDataSets\\trackingSamples\\MVI_2708_75_2.avi";
@@ -29,7 +30,6 @@ int pedTracking(const char* videoname)
 	cv::VideoCapture cap(videoname);
 	if(!cap.isOpened())
 		return -1;
-
 	SVMDetector detector;
 	detector.loadDetectorVector("mydetectorNew.xml");
 	detector.initSymmetryParam(527,531,310,248,530,0.75);
@@ -46,7 +46,7 @@ int pedTracking(const char* videoname)
 	LockedArea* current,*tmp;//记录当前已经检测得到的行人
 	Trackerlet* trackerletlist;//tracker向manager提交trackerlet列表
 	Trackerlet* correctTrackerlet;//manager向tracker反馈修正结果
-
+	double weights[8];
 	while(cap.read(sourceImage))
 	{
 		std::cout<<std::endl;
@@ -79,8 +79,13 @@ int pedTracking(const char* videoname)
 		//cap_write<<sourceImage;
 		if(!isRequest)//当前tracklet更新成功，可以进行tracklet管理过程
 		{
+			//trackerletList传递
 			trackerletlist = tracker.getTrackerlist();
 			manager.setTrackerletList(trackerletlist);
+			//特征权重更新
+			tracker.getWeights(weights);
+			manager.updateWeights(weights);
+
 			//之后应当是根据传递trackerlet进行判定过程，判定哪个trackerlet属于目标trackerlet，或者说
 			//向tracker确定，跟踪目标
 			if(!manager.dicision())
@@ -97,8 +102,7 @@ int pedTracking(const char* videoname)
 			while(cv::waitKey(3) != 32);
 		}
 		k++;
-
-		tracker.clearList();
+		tracker.clearList();//这里是在每个周期的结束进行清空操作，
 	}
 	cap.release();
 	cv::waitKey(0);
