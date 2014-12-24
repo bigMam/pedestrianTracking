@@ -96,16 +96,12 @@ void SymmetryProcess::initParam()
 	//startPos = 120;
 	//endPos = 230;
 	//interval = (endPos - startPos)/11;//10
-
 	lockedPedArea = new LockedArea(); 
 	lockedPedArea->topLeftX = 0;
 	lockedPedArea->topLeftY = 0;
 	lockedPedArea->width = 0;
 	lockedPedArea->height = 0;
 	lockedPedArea->next = NULL;
-
-
-
 }
 void SymmetryProcess::loadImage(const char* filename)
 {
@@ -133,6 +129,7 @@ void SymmetryProcess::cannyProc()
 	//需要考虑进来。或者换一个思路，不直接强行改变，而是按照比例进行缩放
 	start = clock();
 	GaussianBlur(destImage, destImage, Size(7,7), 1.5, 1.5);
+
 	int low = 40;//之前测试最优结果为，40
 	double high = low / 0.4;
 	
@@ -724,6 +721,7 @@ void SymmetryProcess::lockPedestrianArea()
 		current = tmp;
 	}
 	lockedPedArea->next = NULL;
+
 	int location,scanLineNum;
 	float increase;
 	int bottomPos,bottomPosS;
